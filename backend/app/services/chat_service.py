@@ -1,8 +1,8 @@
 """Chat orchestrator.
 
 Flow per turn:
-    1. Load history (Redis → Postgres fallback).
-    2. Call the LLM with `history + user_message`.
+    1. Load conversation history (Redis -> Postgres fallback).
+    2. Run the ReAct screening agent (LLM + tools) for one user turn.
     3. Persist the new user/assistant turns to Redis AND Postgres in parallel.
     4. Return the assistant reply once both writes finish.
 """
@@ -23,7 +23,11 @@ async def handle_turn(session_id: str, user_message: str) -> str:
         "chat: session=%s history_turns=%d", session_id, len(history)
     )
 
-    reply = await llm_client.chat_complete(history, user_message)
+    reply = await llm_client.run_agent(
+        session_id=session_id,
+        user_message=user_message,
+        history=history,
+    )
 
     await asyncio.gather(
         history_repository.append_redis(session_id, user_message, reply),
