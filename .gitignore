@@ -1,0 +1,72 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Logs & temp ---
+*.log
+tmp/
+temp/
+
+# --- Alembic (optional local overrides; keep versions tracked) ---
+# alembic.ini  # uncomment if you store secrets in ini locally
+
+# --- Project outputs ---
+backend/outputs/*
+!backend/outputs/.gitkeep
+
+# --- Private / excluded docs (tracked locally only) ---
+backend/docs/2026.eacl-demo.24_ES.md
+backend/docs/2026.eacl-demo.24.pdf
+backend/docs/FDE_Technical_Assignment.md
+backend/docs/Phase1_Process_Design_ES.md
+backend/docs/Phase1_Process_Design.md
+
+backend/COMMIT_FORMAT.md
