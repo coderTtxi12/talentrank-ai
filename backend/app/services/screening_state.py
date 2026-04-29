@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
@@ -25,7 +25,13 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.logging import get_logger
 from app.core.redis_client import get_redis
-from app.models.database import Candidate, Conversation
+from app.models.database import (
+    Availability,
+    Candidate,
+    Conversation,
+    Language,
+    PreferredSchedule,
+)
 
 logger = get_logger(__name__)
 
@@ -73,6 +79,32 @@ def _coerce(field: str, value: Any) -> Any:
     if field == "start_date" and isinstance(value, date):
         return value.isoformat()
     return value
+
+
+def _enum_or_none(enum_cls: Any, value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, enum_cls):
+        return value
+    if isinstance(value, str):
+        try:
+            return enum_cls(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _date_or_none(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -161,3 +193,112 @@ def _read_state_pg_sync(session_id: str) -> Dict[str, Any]:
 
 async def get_state_db(session_id: str) -> Dict[str, Any]:
     return await asyncio.to_thread(_read_state_pg_sync, session_id)
+
+
+# ---------------------------------------------------------------------------
+# Combined loader (Redis -> Postgres fallback, with cache warm-up)
+# ---------------------------------------------------------------------------
+
+
+async def load_state(session_id: str, *, warm_cache: bool = True) -> Dict[str, Any]:
+    """Return the captured screening state for a session.
+
+    Tries Redis first; falls back to PostgreSQL on cache miss. When the
+    fallback returns data and ``warm_cache`` is true, the values are written
+    back into Redis so the next turn does not pay the DB cost.
+    """
+
+    redis_state = await get_state_redis(session_id)
+    if redis_state:
+        return redis_state
+
+    pg_state = await get_state_db(session_id)
+    if pg_state and warm_cache:
+        try:
+            await update_state_redis(session_id, pg_state)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("warm_cache failed for %s: %s", session_id, exc)
+    return pg_state
+
+
+def _update_state_pg_sync(session_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    with SessionLocal() as db:
+        conv = db.scalar(
+            select(Conversation).where(Conversation.session_id == session_id)
+        )
+        if conv is None:
+            return {"applied": {}, "state": {}, "warning": "conversation_not_found"}
+
+        candidate: Optional[Candidate] = None
+        if conv.candidate_id is not None:
+            candidate = db.get(Candidate, conv.candidate_id)
+        if candidate is None:
+            candidate = Candidate()
+            db.add(candidate)
+            db.flush()
+            conv.candidate_id = candidate.id
+
+        normalized: Dict[str, Any] = {}
+        for field, value in updates.items():
+            if field not in ALLOWED_FIELDS:
+                continue
+            coerced = _coerce(field, value)
+            if coerced is not None:
+                normalized[field] = coerced
+
+        applied: Dict[str, Any] = {}
+        unsupported: List[str] = []
+
+        if "full_name" in normalized:
+            candidate.full_name = str(normalized["full_name"])
+            applied["full_name"] = candidate.full_name
+        if "drivers_license" in normalized:
+            candidate.drivers_license = bool(normalized["drivers_license"])
+            applied["drivers_license"] = candidate.drivers_license
+        if "language" in normalized:
+            lang = _enum_or_none(Language, normalized["language"])
+            if lang is not None:
+                candidate.language = lang
+                applied["language"] = lang.value
+        if "availability" in normalized:
+            availability = _enum_or_none(Availability, normalized["availability"])
+            if availability is not None:
+                candidate.availability = availability
+                applied["availability"] = availability.value
+        if "preferred_schedule" in normalized:
+            schedule = _enum_or_none(PreferredSchedule, normalized["preferred_schedule"])
+            if schedule is not None:
+                candidate.preferred_schedule = schedule
+                applied["preferred_schedule"] = schedule.value
+        if "experience_years" in normalized:
+            candidate.experience_years = int(normalized["experience_years"])
+            applied["experience_years"] = candidate.experience_years
+        if "platforms" in normalized and isinstance(normalized["platforms"], list):
+            candidate.platforms = [str(p) for p in normalized["platforms"]]
+            applied["platforms"] = candidate.platforms
+        if "start_date" in normalized:
+            start = _date_or_none(normalized["start_date"])
+            if start is not None:
+                candidate.start_date = start
+                applied["start_date"] = start.isoformat()
+        if "consent" in normalized:
+            consent = bool(normalized["consent"])
+            candidate.consent = consent
+            if consent and candidate.consent_at is None:
+                candidate.consent_at = datetime.now(timezone.utc)
+            applied["consent"] = consent
+        if "city" in normalized:
+            unsupported.append("city")
+
+        db.commit()
+        state = _read_state_pg_sync(session_id)
+        out: Dict[str, Any] = {"applied": applied, "state": state}
+        if unsupported:
+            out["warning"] = f"unsupported_in_candidate_table:{','.join(unsupported)}"
+        return out
+
+
+async def update_state_db(session_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(updates, dict):
+        raise ValueError("updates must be a JSON object")
+    return await asyncio.to_thread(_update_state_pg_sync, session_id, updates)

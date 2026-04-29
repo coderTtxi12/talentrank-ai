@@ -2,9 +2,8 @@
 
 Tools available to the screening agent:
     - `search_company_info` (RAG over Chroma)
-    - `get_screening_state_redis` (hot-path read of captured fields)
-    - `get_screening_state_db` (read-only Postgres fallback)
     - `update_screening_state` (write captured fields to Redis)
+    - `update_screening_state_db` (write captured fields to Postgres)
 
 `session_id` is bound via closure (`build_tools`) so the model never has to
 pass it explicitly and cannot use a tool to read another session's state.
@@ -18,6 +17,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.services import screening_state, vector_store
+from langsmith import traceable
 
 logger = get_logger(__name__)
 
@@ -56,38 +56,6 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     },
                 },
                 "required": ["query"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_screening_state_redis",
-            "description": (
-                "Return the captured screening fields for the current "
-                "session from Redis. Call this before asking a field so you "
-                "do not re-ask values already captured."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_screening_state_db",
-            "description": (
-                "Read-only fallback: read the candidate record from "
-                "PostgreSQL for the current session. Use only when "
-                "`get_screening_state_redis` returned an empty object."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {},
                 "additionalProperties": False,
             },
         },
@@ -152,6 +120,65 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_screening_state_db",
+            "description": (
+                "Persist captured fields to PostgreSQL for the current "
+                "session's candidate record. Use this when you need a durable "
+                "database update after confirmation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "updates": {
+                        "type": "object",
+                        "description": "Map of field -> value to persist.",
+                        "properties": {
+                            "full_name": {"type": "string"},
+                            "drivers_license": {"type": "boolean"},
+                            "city": {"type": "string"},
+                            "language": {
+                                "type": "string",
+                                "enum": ["es-ES", "es-MX", "en"],
+                            },
+                            "availability": {
+                                "type": "string",
+                                "enum": ["full_time", "part_time", "weekends"],
+                            },
+                            "preferred_schedule": {
+                                "type": "string",
+                                "enum": [
+                                    "morning",
+                                    "afternoon",
+                                    "evening",
+                                    "flexible",
+                                ],
+                            },
+                            "experience_years": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 50,
+                            },
+                            "platforms": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "ISO date YYYY-MM-DD.",
+                            },
+                            "consent": {"type": "boolean"},
+                        },
+                        "additionalProperties": False,
+                    }
+                },
+                "required": ["updates"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -162,7 +189,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
 
 ToolFn = Callable[..., Union[Dict[str, Any], Awaitable[Dict[str, Any]]]]
 
-
+@traceable
 def _search_company_info(query: str, k: Optional[int] = None) -> Dict[str, Any]:
     top_k = k if isinstance(k, int) and k > 0 else settings.RAG_TOP_K
     try:
@@ -172,29 +199,26 @@ def _search_company_info(query: str, k: Optional[int] = None) -> Dict[str, Any]:
         return {"error": str(exc), "results": []}
     return {"query": query, "k": top_k, "results": hits}
 
-
 def build_tools(session_id: str) -> Dict[str, ToolFn]:
     """Bind `session_id` to the per-session tools."""
-
-    async def get_screening_state_redis() -> Dict[str, Any]:
-        return await screening_state.get_state_redis(session_id)
-
-    async def get_screening_state_db() -> Dict[str, Any]:
-        return await screening_state.get_state_db(session_id)
 
     async def update_screening_state(updates: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(updates, dict):
             return {"error": "`updates` must be a JSON object"}
         return await screening_state.update_state_redis(session_id, updates)
 
+    async def update_screening_state_db(updates: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(updates, dict):
+            return {"error": "`updates` must be a JSON object"}
+        return await screening_state.update_state_db(session_id, updates)
+
     return {
         "search_company_info": _search_company_info,
-        "get_screening_state_redis": get_screening_state_redis,
-        "get_screening_state_db": get_screening_state_db,
         "update_screening_state": update_screening_state,
+        "update_screening_state_db": update_screening_state_db,
     }
 
-
+@traceable
 async def call_tool(
     name: str, arguments: Dict[str, Any], tools: Dict[str, ToolFn]
 ) -> Dict[str, Any]:

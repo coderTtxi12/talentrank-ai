@@ -31,7 +31,7 @@ router = APIRouter(tags=["chat"])
 )
 async def chat(payload: ChatRequest) -> ChatResponse:
     try:
-        reply = await handle_turn(payload.session_id, payload.message)
+        envelope = await handle_turn(payload.session_id, payload.message)
     except RuntimeError as exc:
         logger.error("chat misconfiguration: %s", exc)
         raise HTTPException(
@@ -45,4 +45,4 @@ async def chat(payload: ChatRequest) -> ChatResponse:
             detail=_client_safe_detail(exc),
         ) from exc
 
-    return ChatResponse(session_id=payload.session_id, reply=reply)
+    return ChatResponse.from_envelope(payload.session_id, envelope)
