@@ -50,6 +50,16 @@ class Base(DeclarativeBase):
     """Declarative base. Importing this module registers every model on it."""
 
 
+def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
+    """PostgreSQL ENUM labels ↔ Python Enum `.value` (not member names).
+
+    Without this, loading rows can raise ``LookupError: 'web_chat' is not among
+    the defined enum values … Possible values: WEB_CHAT, VOICE``.
+    """
+
+    return [member.value for member in enum_cls]
+
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -172,7 +182,7 @@ class ServiceArea(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     city: Mapped[str] = mapped_column(String(120), nullable=False)
     country: Mapped[Country] = mapped_column(
-        SAEnum(Country, name="country_enum"), nullable=False
+        SAEnum(Country, name="country_enum", values_callable=_enum_values), nullable=False
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
@@ -232,7 +242,7 @@ class Vacancy(Base):
         UUID(as_uuid=True), ForeignKey("service_areas.id"), nullable=False
     )
     urgency: Mapped[Urgency] = mapped_column(
-        SAEnum(Urgency, name="urgency_enum"), nullable=False, server_default=text("'medium'")
+        SAEnum(Urgency, name="urgency_enum", values_callable=_enum_values), nullable=False, server_default=text("'medium'")
     )
     critical_shifts: Mapped[List[str]] = mapped_column(
         ARRAY(String(32)), nullable=False, server_default=text("'{}'::varchar[]")
@@ -240,7 +250,7 @@ class Vacancy(Base):
     ideal_start_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("3"))
     headcount: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     status: Mapped[VacancyStatus] = mapped_column(
-        SAEnum(VacancyStatus, name="vacancy_status_enum"),
+        SAEnum(VacancyStatus, name="vacancy_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'open'"),
     )
@@ -273,7 +283,7 @@ class Candidate(Base):
     phone: Mapped[Optional[str]] = mapped_column(String(40), unique=True)
     email: Mapped[Optional[str]] = mapped_column(String(160), unique=True)
     language: Mapped[Language] = mapped_column(
-        SAEnum(Language, name="language_enum"), nullable=False, server_default=text("'es-MX'")
+        SAEnum(Language, name="language_enum", values_callable=_enum_values), nullable=False, server_default=text("'es-MX'")
     )
     consent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -287,17 +297,17 @@ class Candidate(Base):
         UUID(as_uuid=True), ForeignKey("service_zones.id")
     )
     availability: Mapped[Optional[Availability]] = mapped_column(
-        SAEnum(Availability, name="availability_enum")
+        SAEnum(Availability, name="availability_enum", values_callable=_enum_values)
     )
     preferred_schedule: Mapped[Optional[PreferredSchedule]] = mapped_column(
-        SAEnum(PreferredSchedule, name="preferred_schedule_enum")
+        SAEnum(PreferredSchedule, name="preferred_schedule_enum", values_callable=_enum_values)
     )
     experience_years: Mapped[Optional[int]] = mapped_column(Integer)
     platforms: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String(64)))
     start_date: Mapped[Optional[date]] = mapped_column(Date)
 
     status: Mapped[CandidateStatus] = mapped_column(
-        SAEnum(CandidateStatus, name="candidate_status_enum"),
+        SAEnum(CandidateStatus, name="candidate_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'new'"),
     )
@@ -348,13 +358,13 @@ class Conversation(Base):
         UUID(as_uuid=True), ForeignKey("vacancies.id", ondelete="SET NULL")
     )
     channel: Mapped[Channel] = mapped_column(
-        SAEnum(Channel, name="channel_enum"), nullable=False, server_default=text("'web_chat'")
+        SAEnum(Channel, name="channel_enum", values_callable=_enum_values), nullable=False, server_default=text("'web_chat'")
     )
     language: Mapped[Language] = mapped_column(
-        SAEnum(Language, name="language_enum"), nullable=False, server_default=text("'es-MX'")
+        SAEnum(Language, name="language_enum", values_callable=_enum_values), nullable=False, server_default=text("'es-MX'")
     )
     status: Mapped[ConversationStatus] = mapped_column(
-        SAEnum(ConversationStatus, name="conversation_status_enum"),
+        SAEnum(ConversationStatus, name="conversation_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'active'"),
     )
@@ -396,11 +406,11 @@ class Message(Base):
         nullable=False,
     )
     role: Mapped[MessageRole] = mapped_column(
-        SAEnum(MessageRole, name="message_role_enum"), nullable=False
+        SAEnum(MessageRole, name="message_role_enum", values_callable=_enum_values), nullable=False
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[Optional[Language]] = mapped_column(
-        SAEnum(Language, name="language_enum")
+        SAEnum(Language, name="language_enum", values_callable=_enum_values)
     )
     security_flagged: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
@@ -434,10 +444,10 @@ class Job(Base):
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     job_type: Mapped[JobType] = mapped_column(
-        SAEnum(JobType, name="job_type_enum"), nullable=False
+        SAEnum(JobType, name="job_type_enum", values_callable=_enum_values), nullable=False
     )
     status: Mapped[JobStatus] = mapped_column(
-        SAEnum(JobStatus, name="job_status_enum"),
+        SAEnum(JobStatus, name="job_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'pending'"),
     )
@@ -491,7 +501,7 @@ class SentimentResult(Base):
         nullable=False,
     )
     sentiment: Mapped[Sentiment] = mapped_column(
-        SAEnum(Sentiment, name="sentiment_enum"), nullable=False
+        SAEnum(Sentiment, name="sentiment_enum", values_callable=_enum_values), nullable=False
     )
     confidence: Mapped[float] = mapped_column(Numeric(4, 3), nullable=False)
     signals: Mapped[Dict[str, Any]] = mapped_column(
@@ -527,7 +537,7 @@ class RankingRun(Base):
     )
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     status: Mapped[JobStatus] = mapped_column(
-        SAEnum(JobStatus, name="job_status_enum"),
+        SAEnum(JobStatus, name="job_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'pending'"),
     )
@@ -626,7 +636,7 @@ class SecurityEvent(Base):
     )
     attack_type: Mapped[str] = mapped_column(String(80), nullable=False)
     severity: Mapped[SecuritySeverity] = mapped_column(
-        SAEnum(SecuritySeverity, name="security_severity_enum"), nullable=False
+        SAEnum(SecuritySeverity, name="security_severity_enum", values_callable=_enum_values), nullable=False
     )
     pattern: Mapped[Optional[str]] = mapped_column(Text)
     raw_input: Mapped[Optional[str]] = mapped_column(Text)
@@ -661,7 +671,7 @@ class Nudge(Base):
         nullable=False,
     )
     nudge_type: Mapped[NudgeType] = mapped_column(
-        SAEnum(NudgeType, name="nudge_type_enum"), nullable=False
+        SAEnum(NudgeType, name="nudge_type_enum", values_callable=_enum_values), nullable=False
     )
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

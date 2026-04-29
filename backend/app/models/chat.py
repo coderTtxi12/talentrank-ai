@@ -19,6 +19,8 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Reply produced by the agent (placeholder)."""
+    """Reply produced by the agent."""
 
+    session_id: str = Field(..., description="Echo of the conversation session id.")
+    reply: str = Field(..., description="Assistant reply text.")
     status: str = Field(default="ok", description="Reply status flag.")

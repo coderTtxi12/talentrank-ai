@@ -48,6 +48,29 @@ class Settings(BaseSettings):
         default=60 * 60 * 24 * 7,
         description="TTL for conversation history in Redis (default 7 days).",
     )
+    HISTORY_MAX_TURNS: int = Field(
+        default=40,
+        description="Cap of recent turns kept in Redis hist:<session_id>.",
+    )
+
+    # LLM (OpenAI)
+    OPENAI_API_KEY: str = Field(
+        default="",
+        description="OpenAI API key. MUST be provided via env (.env or runtime).",
+    )
+    OPENAI_MODEL: str = Field(
+        default="",
+        description="OpenAI model identifier. MUST be provided via env.",
+    )
+    OPENAI_SYSTEM_PROMPT: str = Field(
+        default=(
+            "You are the Grupo Sazon screening assistant for delivery driver "
+            "candidates. Stay on topic, ask one question at a time, keep "
+            "messages short and professional."
+        ),
+        description="System prompt prepended to every LLM call.",
+    )
+    OPENAI_TIMEOUT_SECONDS: float = Field(default=30.0)
 
 
 @lru_cache
