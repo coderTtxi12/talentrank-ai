@@ -70,3 +70,6 @@ backend/docs/Phase1_Process_Design_ES.md
 backend/docs/Phase1_Process_Design.md
 
 backend/COMMIT_FORMAT.md
+
+# --- Vector store ---
+backend/.chroma/

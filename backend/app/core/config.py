@@ -72,6 +72,28 @@ class Settings(BaseSettings):
     )
     OPENAI_TIMEOUT_SECONDS: float = Field(default=30.0)
 
+    # Embeddings (OpenAI)
+    OPENAI_EMBEDDING_MODEL: str = Field(
+        default="text-embedding-ada-002",
+        description="OpenAI embedding model for RAG (defaults to ada-002).",
+    )
+
+    # Chroma (vector store)
+    CHROMA_PERSIST_DIR: str = Field(
+        default=".chroma",
+        description="Persistent directory for Chroma vector store data.",
+    )
+    CHROMA_COLLECTION_KB: str = Field(
+        default="grupo_sazon_kb",
+        description="Default Chroma collection for knowledge-base RAG.",
+    )
+
+    # RAG retrieval
+    RAG_TOP_K: int = Field(
+        default=4,
+        description="Default number of nearest chunks for semantic retrieval.",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
