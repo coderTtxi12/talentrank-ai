@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -55,7 +55,10 @@ class AgentEnvelope(BaseModel):
     reasoning: str = Field(default="", description="Brief internal rationale.")
     reply: str = Field(default="", description="User-facing message.")
     language: LanguageLiteral = Field(default="es-MX")
-    captured_this_turn: List[str] = Field(default_factory=list)
+    state_updates: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Fields captured or corrected this turn (key -> value).",
+    )
     next_action: NextActionLiteral = Field(default="ask_field")
     next_field_to_ask: Optional[str] = None
     candidate_status_hint: CandidateStatusLiteral = Field(default="in_progress")

@@ -1,11 +1,13 @@
 """Chat orchestrator.
 
 Flow per turn:
-    1. Load conversation history (Redis -> Postgres fallback).
-    2. Pre-load the screening state for this session (Redis -> Postgres
-       fallback) so the agent does not have to spend tool calls reading it.
-    3. Run the ReAct screening agent (LLM + tools) for one user turn. The
-       agent returns a structured JSON envelope (`reasoning`, `reply`, ...).
+    1. Load conversation history (Redis -> Postgres fallback) and the
+       pre-loaded screening state for this session, in parallel.
+    2. Run the screening agent (LLM + RAG tool) for one user turn. The
+       agent returns a structured JSON envelope (`reasoning`, `reply`,
+       `state_updates`, ...).
+    3. Apply `state_updates` to Redis AND Postgres in parallel (only if
+       non-empty).
     4. Persist the new user/assistant turns to Redis AND Postgres in
        parallel using only the `reply` text.
     5. Return the full envelope so the API can surface metadata.
@@ -20,6 +22,30 @@ from app.core.logging import get_logger
 from app.services import history_repository, llm_client, screening_state
 
 logger = get_logger(__name__)
+
+
+def _coerce_state_updates(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+async def _persist_state_updates(
+    session_id: str, updates: Dict[str, Any]
+) -> None:
+    if not updates:
+        return
+    redis_task = screening_state.update_state_redis(session_id, updates)
+    db_task = screening_state.update_state_db(session_id, updates)
+    results = await asyncio.gather(redis_task, db_task, return_exceptions=True)
+    for label, result in zip(("redis", "postgres"), results):
+        if isinstance(result, Exception):
+            logger.warning(
+                "screening state update failed (%s) for session=%s: %s",
+                label,
+                session_id,
+                result,
+            )
 
 
 async def handle_turn(session_id: str, user_message: str) -> Dict[str, Any]:
@@ -42,7 +68,10 @@ async def handle_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     )
     reply = str(envelope.get("reply", ""))
 
+    state_updates = _coerce_state_updates(envelope.get("state_updates"))
+
     await asyncio.gather(
+        _persist_state_updates(session_id, state_updates),
         history_repository.append_redis(session_id, user_message, reply),
         history_repository.append_postgres(session_id, user_message, reply),
     )
