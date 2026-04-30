@@ -73,17 +73,27 @@ services:
       retries: 5
       start_period: 15s
 
-  sentiment-worker:
+  sentiment-analysis-worker:
     build:
       context: .
-      dockerfile: workers/Dockerfile
-    container_name: orbio-sentiment-worker
+      dockerfile: workers/sentiment_analysis/Dockerfile
+    container_name: orbio-sentiment-analysis-worker
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+
+  listwise-plackett-luce-worker:
+    build:
+      context: .
+      dockerfile: workers/listwise_plackett_luce/Dockerfile
+    container_name: orbio-listwise-plackett-luce-worker
+    restart: unless-stopped
+    environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-development}
 

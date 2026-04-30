@@ -1,4 +1,4 @@
-# Dedicated image for the sentiment-analysis worker.
+# Image for the sentiment-analysis worker.
 #
 # Build context (set in docker-compose.yml) MUST be `./backend` so that the
 # `app/` package, `prompts/` and shared code are available to COPY.
@@ -21,6 +21,5 @@ RUN pip install -r /app/requirements.txt
 
 COPY app /app/app
 COPY prompts /app/prompts
-COPY worker.py /app/worker.py
 
-CMD ["python", "worker.py"]
+CMD ["python", "-m", "app.workers.sentiment_analysis_worker"]

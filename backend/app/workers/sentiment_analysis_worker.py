@@ -12,13 +12,15 @@ Design notes:
     * Holds a single idle connection per worker process. No polling.
     * On disconnect / transient error the loop reconnects with exponential
       backoff capped at `_MAX_BACKOFF_SECONDS`.
+
+Run locally:
+    python -m app.workers.sentiment_analysis_worker
 """
 
 from __future__ import annotations
 
 import asyncio
 import signal
-from typing import Optional
 
 import psycopg
 
@@ -27,6 +29,7 @@ from app.core.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
 
+WORKER_NAME = "sentiment-analysis"
 CHANNEL = "candidate_completed"
 
 _INITIAL_BACKOFF_SECONDS = 1.0
@@ -50,7 +53,8 @@ async def _handle_notification(payload: str) -> None:
     """Placeholder action triggered when a candidate completes screening."""
 
     logger.info(
-        "📬 Sentiment worker: he entrado en acción para candidate_id=%s",
+        "📬 [%s] he entrado en acción para candidate_id=%s",
+        WORKER_NAME,
         payload or "<empty>",
     )
 
@@ -59,12 +63,12 @@ async def _listen_loop(stop_event: asyncio.Event) -> None:
     """Single LISTEN session. Returns on disconnect or stop."""
 
     dsn = _psycopg_dsn()
-    logger.info("Sentiment worker connecting to Postgres for LISTEN %s", CHANNEL)
+    logger.info("[%s] connecting to Postgres for LISTEN %s", WORKER_NAME, CHANNEL)
 
     async with await psycopg.AsyncConnection.connect(dsn, autocommit=True) as conn:
         async with conn.cursor() as cur:
             await cur.execute(f"LISTEN {CHANNEL};")
-        logger.info("Sentiment worker subscribed to channel '%s'", CHANNEL)
+        logger.info("[%s] subscribed to channel '%s'", WORKER_NAME, CHANNEL)
 
         gen = conn.notifies()
 
@@ -96,13 +100,13 @@ async def run() -> None:
     """Main worker entrypoint with reconnect/backoff supervision."""
 
     configure_logging()
-    logger.info("Starting sentiment worker")
+    logger.info("Starting %s worker", WORKER_NAME)
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
     def _request_stop(signame: str) -> None:
-        logger.info("Received %s, stopping sentiment worker", signame)
+        logger.info("[%s] received %s, stopping", WORKER_NAME, signame)
         stop_event.set()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -120,7 +124,8 @@ async def run() -> None:
             raise
         except Exception as exc:
             logger.exception(
-                "Sentiment worker LISTEN loop crashed: %s. Reconnecting in %.1fs",
+                "[%s] LISTEN loop crashed: %s. Reconnecting in %.1fs",
+                WORKER_NAME,
                 exc,
                 backoff,
             )
@@ -130,7 +135,7 @@ async def run() -> None:
                 pass
             backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
 
-    logger.info("Sentiment worker stopped")
+    logger.info("[%s] worker stopped", WORKER_NAME)
 
 
 def main() -> None:

@@ -1,9 +1,9 @@
 # Image for the FastAPI backend.
 #
-# The dedicated worker image lives at workers/Dockerfile and intentionally
-# shares the same source tree (app/) so SQLAlchemy models, config and logging
-# stay in lockstep across services. Each container only runs the modules its
-# entrypoint actually imports.
+# Each worker has its own dedicated Dockerfile under workers/<name>/Dockerfile
+# but they all share this same source tree (app/), so SQLAlchemy models,
+# config and logging stay in lockstep across services. Each container only
+# runs the modules its entrypoint actually imports.
 
 FROM python:3.12-slim AS base
 
