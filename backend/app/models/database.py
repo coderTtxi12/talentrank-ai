@@ -291,6 +291,9 @@ class Candidate(Base):
         nullable=False,
         server_default=text("'new'"),
     )
+    is_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     slot_uncertain: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     created_at: Mapped[datetime] = mapped_column(

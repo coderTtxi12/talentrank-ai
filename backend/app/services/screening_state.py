@@ -28,6 +28,7 @@ from app.core.redis_client import get_redis
 from app.models.database import (
     Availability,
     Candidate,
+    CandidateStatus,
     Conversation,
     Language,
     PreferredSchedule,
@@ -102,6 +103,19 @@ def _date_or_none(value: Any) -> Optional[date]:
     if isinstance(value, str):
         try:
             return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _candidate_status_or_none(value: Any) -> Optional[CandidateStatus]:
+    if value is None:
+        return None
+    if isinstance(value, CandidateStatus):
+        return value
+    if isinstance(value, str):
+        try:
+            return CandidateStatus(value)
         except ValueError:
             return None
     return None
@@ -187,6 +201,7 @@ def _read_state_pg_sync(session_id: str) -> Dict[str, Any]:
             "start_date": (
                 candidate.start_date.isoformat() if candidate.start_date else None
             ),
+            "is_completed": bool(getattr(candidate, "is_completed", False)),
         }
         return {k: v for k, v in out.items() if v is not None}
 
@@ -221,7 +236,12 @@ async def load_state(session_id: str, *, warm_cache: bool = True) -> Dict[str, A
     return pg_state
 
 
-def _update_state_pg_sync(session_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+def _update_state_pg_sync(
+    session_id: str,
+    updates: Dict[str, Any],
+    candidate_status_hint: str,
+    is_completed: bool,
+) -> Dict[str, Any]:
     with SessionLocal() as db:
         conv = db.scalar(
             select(Conversation).where(Conversation.session_id == session_id)
@@ -287,12 +307,36 @@ def _update_state_pg_sync(session_id: str, updates: Dict[str, Any]) -> Dict[str,
             candidate.city_zone = str(normalized["city"])
             applied["city_zone"] = candidate.city_zone
 
+        status_hint = _candidate_status_or_none(candidate_status_hint)
+        if status_hint is not None:
+            candidate.status = status_hint
+            applied["status"] = status_hint.value
+        elif applied and candidate.status == CandidateStatus.NEW:
+            candidate.status = CandidateStatus.IN_PROGRESS
+            applied["status"] = candidate.status.value
+
+        if is_completed:
+            setattr(candidate, "is_completed", True)
+            applied["is_completed"] = True
+
         db.commit()
         state = _read_state_pg_sync(session_id)
         return {"applied": applied, "state": state}
 
 
-async def update_state_db(session_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+async def update_state_db(
+    session_id: str,
+    updates: Dict[str, Any],
+    *,
+    candidate_status_hint: str = "",
+    is_completed: bool = False,
+) -> Dict[str, Any]:
     if not isinstance(updates, dict):
         raise ValueError("updates must be a JSON object")
-    return await asyncio.to_thread(_update_state_pg_sync, session_id, updates)
+    return await asyncio.to_thread(
+        _update_state_pg_sync,
+        session_id,
+        updates,
+        candidate_status_hint,
+        is_completed,
+    )

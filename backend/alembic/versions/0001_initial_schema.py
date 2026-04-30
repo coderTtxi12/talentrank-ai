@@ -317,6 +317,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'new'"),
         ),
+        sa.Column("is_completed", sa.Boolean, nullable=False, server_default=sa.text("false")),
         sa.Column(
             "slot_uncertain", sa.Boolean, nullable=False, server_default=sa.text("false")
         ),

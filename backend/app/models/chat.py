@@ -62,6 +62,10 @@ class AgentEnvelope(BaseModel):
     next_action: NextActionLiteral = Field(default="ask_field")
     next_field_to_ask: Optional[str] = None
     candidate_status_hint: CandidateStatusLiteral = Field(default="in_progress")
+    is_completed: bool = Field(
+        default=False,
+        description="True when screening is fully completed for this candidate.",
+    )
     security_flag: SecurityFlagLiteral = Field(default="none")
     needs_human: bool = Field(default=False)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)

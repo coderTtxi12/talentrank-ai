@@ -30,13 +30,35 @@ def _coerce_state_updates(value: Any) -> Dict[str, Any]:
     return {}
 
 
+def _coerce_candidate_status_hint(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _coerce_is_completed(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return False
+
+
 async def _persist_state_updates(
-    session_id: str, updates: Dict[str, Any]
+    session_id: str,
+    updates: Dict[str, Any],
+    candidate_status_hint: str,
+    is_completed: bool,
 ) -> None:
-    if not updates:
+    if not updates and not candidate_status_hint and not is_completed:
         return
     redis_task = screening_state.update_state_redis(session_id, updates)
-    db_task = screening_state.update_state_db(session_id, updates)
+    db_task = screening_state.update_state_db(
+        session_id,
+        updates,
+        candidate_status_hint=candidate_status_hint,
+        is_completed=is_completed,
+    )
     results = await asyncio.gather(redis_task, db_task, return_exceptions=True)
     for label, result in zip(("redis", "postgres"), results):
         if isinstance(result, Exception):
@@ -69,9 +91,15 @@ async def handle_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     reply = str(envelope.get("reply", ""))
 
     state_updates = _coerce_state_updates(envelope.get("state_updates"))
+    candidate_status_hint = _coerce_candidate_status_hint(
+        envelope.get("candidate_status_hint")
+    )
+    is_completed = _coerce_is_completed(envelope.get("is_completed"))
 
     await asyncio.gather(
-        _persist_state_updates(session_id, state_updates),
+        _persist_state_updates(
+            session_id, state_updates, candidate_status_hint, is_completed
+        ),
         history_repository.append_redis(session_id, user_message, reply),
         history_repository.append_postgres(session_id, user_message, reply),
     )
