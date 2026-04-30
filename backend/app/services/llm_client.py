@@ -181,7 +181,12 @@ async def run_agent(
     if state_msg is not None:
         messages.append(state_msg)
     messages.extend(history)
-    messages.append({"role": "user", "content": user_message})
+    messages.append(
+        {
+            "role": "user",
+            "content": f"<current_user_turn>{user_message}</current_user_turn>",
+        }
+    )
 
     final_envelope: Dict[str, Any] = _fallback_envelope("", reason="not_set")
 

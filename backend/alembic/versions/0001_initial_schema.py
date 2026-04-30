@@ -241,19 +241,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("area_id", "name", name="uq_zone_per_area"),
     )
 
-    op.create_table(
-        "platforms",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            server_default=sa.text("gen_random_uuid()"),
-        ),
-        sa.Column("code", sa.String(64), nullable=False, unique=True),
-        sa.Column("name", sa.String(120), nullable=False),
-        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("true")),
-    )
-
     # --------------------------------------------------------------- vacancies
     op.create_table(
         "vacancies",
@@ -317,19 +304,8 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'es-MX'"),
         ),
-        sa.Column("consent", sa.Boolean, nullable=False, server_default=sa.text("false")),
-        sa.Column("consent_at", sa.DateTime(timezone=True)),
         sa.Column("drivers_license", sa.Boolean),
-        sa.Column(
-            "area_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("service_areas.id"),
-        ),
-        sa.Column(
-            "zone_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("service_zones.id"),
-        ),
+        sa.Column("city_zone", sa.String(200)),
         sa.Column("availability", AVAILABILITY_ENUM),
         sa.Column("preferred_schedule", PREFERRED_SCHEDULE_ENUM),
         sa.Column("experience_years", sa.Integer),
@@ -359,7 +335,32 @@ def upgrade() -> None:
         sa.CheckConstraint("experience_years IS NULL OR experience_years BETWEEN 0 AND 50"),
     )
     op.create_index("ix_candidates_status", "candidates", ["status"])
-    op.create_index("ix_candidates_area_status", "candidates", ["area_id", "status"])
+
+    # Trigger: when drivers_license becomes non-null, transition status
+    # from new -> in_progress on the same row.
+    op.execute(
+        """
+        CREATE OR REPLACE FUNCTION set_candidate_in_progress_on_license()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            IF NEW.drivers_license IS NOT NULL
+               AND OLD.drivers_license IS NULL
+               AND NEW.status = 'new' THEN
+                NEW.status := 'in_progress';
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER trg_candidate_in_progress_on_license
+        BEFORE UPDATE ON candidates
+        FOR EACH ROW
+        EXECUTE FUNCTION set_candidate_in_progress_on_license();
+        """
+    )
 
     # ----------------------------------------------------------- conversations
     op.create_table(
@@ -750,6 +751,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
 
+    op.execute("DROP TRIGGER IF EXISTS trg_candidate_in_progress_on_license ON candidates")
+    op.execute("DROP FUNCTION IF EXISTS set_candidate_in_progress_on_license()")
+
     for tbl in (
         "audit_log",
         "nudges",
@@ -763,7 +767,6 @@ def downgrade() -> None:
         "conversations",
         "candidates",
         "vacancies",
-        "platforms",
         "service_zones",
         "service_areas",
     ):

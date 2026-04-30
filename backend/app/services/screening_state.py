@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
@@ -40,13 +40,13 @@ ALLOWED_FIELDS: List[str] = [
     "full_name",
     "drivers_license",
     "city",
+    "city_zone",
     "language",
     "availability",
     "preferred_schedule",
     "experience_years",
     "platforms",
     "start_date",
-    "consent",
 ]
 
 
@@ -59,7 +59,7 @@ def _coerce(field: str, value: Any) -> Any:
 
     if value is None:
         return None
-    if field in {"drivers_license", "consent"}:
+    if field == "drivers_license":
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
@@ -172,8 +172,8 @@ def _read_state_pg_sync(session_id: str) -> Dict[str, Any]:
         out: Dict[str, Any] = {
             "full_name": candidate.full_name,
             "language": candidate.language.value if candidate.language else None,
-            "consent": bool(candidate.consent),
             "drivers_license": candidate.drivers_license,
+            "city_zone": candidate.city_zone,
             "availability": (
                 candidate.availability.value if candidate.availability else None
             ),
@@ -247,7 +247,6 @@ def _update_state_pg_sync(session_id: str, updates: Dict[str, Any]) -> Dict[str,
                 normalized[field] = coerced
 
         applied: Dict[str, Any] = {}
-        unsupported: List[str] = []
 
         if "full_name" in normalized:
             candidate.full_name = str(normalized["full_name"])
@@ -281,21 +280,16 @@ def _update_state_pg_sync(session_id: str, updates: Dict[str, Any]) -> Dict[str,
             if start is not None:
                 candidate.start_date = start
                 applied["start_date"] = start.isoformat()
-        if "consent" in normalized:
-            consent = bool(normalized["consent"])
-            candidate.consent = consent
-            if consent and candidate.consent_at is None:
-                candidate.consent_at = datetime.now(timezone.utc)
-            applied["consent"] = consent
-        if "city" in normalized:
-            unsupported.append("city")
+        if "city_zone" in normalized:
+            candidate.city_zone = str(normalized["city_zone"])
+            applied["city_zone"] = candidate.city_zone
+        elif "city" in normalized:
+            candidate.city_zone = str(normalized["city"])
+            applied["city_zone"] = candidate.city_zone
 
         db.commit()
         state = _read_state_pg_sync(session_id)
-        out: Dict[str, Any] = {"applied": applied, "state": state}
-        if unsupported:
-            out["warning"] = f"unsupported_in_candidate_table:{','.join(unsupported)}"
-        return out
+        return {"applied": applied, "state": state}
 
 
 async def update_state_db(session_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:

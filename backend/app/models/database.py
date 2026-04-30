@@ -2,7 +2,7 @@
 
 Design principles:
 - PostgreSQL only (we rely on JSONB, ARRAY and ENUM types).
-- Lookup catalogs (`service_areas`, `platforms`) are tables, not enums in code.
+- Lookup catalogs (`service_areas`) are tables, not enums in code.
 - Free-form, evolving payloads (LLM traces, sentiment signals, rubric, etc.)
   live in JSONB columns.
 - Surrogate UUID PKs everywhere; natural keys (e.g. `code`) are unique.
@@ -211,19 +211,6 @@ class ServiceZone(Base):
     __table_args__ = (UniqueConstraint("area_id", "name", name="uq_zone_per_area"),)
 
 
-class Platform(Base):
-    """Delivery platform catalog (Glovo, Uber Eats, Rappi, DiDi, Stuart, ...)."""
-
-    __tablename__ = "platforms"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
-    code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
-
-
 # ---------------------------------------------------------------------------
 # Vacancies
 # ---------------------------------------------------------------------------
@@ -269,9 +256,9 @@ class Vacancy(Base):
 class Candidate(Base):
     """A person screened by the agent.
 
-    PII is stored only after consent (S0). License is a boolean asked via chat —
-    no image, no document attachment. `phone` and `email` are optional and only
-    populated if/when the candidate provides them.
+    License is a boolean asked via chat — no image, no document attachment.
+    `phone` and `email` are optional and only populated if/when the candidate
+    provides them.
     """
 
     __tablename__ = "candidates"
@@ -285,17 +272,10 @@ class Candidate(Base):
     language: Mapped[Language] = mapped_column(
         SAEnum(Language, name="language_enum", values_callable=_enum_values), nullable=False, server_default=text("'es-MX'")
     )
-    consent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Screening data (asked through chat — license is a boolean only)
     drivers_license: Mapped[Optional[bool]] = mapped_column(Boolean)
-    area_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("service_areas.id")
-    )
-    zone_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("service_zones.id")
-    )
+    city_zone: Mapped[Optional[str]] = mapped_column(String(200))
     availability: Mapped[Optional[Availability]] = mapped_column(
         SAEnum(Availability, name="availability_enum", values_callable=_enum_values)
     )
@@ -328,7 +308,6 @@ class Candidate(Base):
     __table_args__ = (
         CheckConstraint("experience_years IS NULL OR experience_years BETWEEN 0 AND 50"),
         Index("ix_candidates_status", "status"),
-        Index("ix_candidates_area_status", "area_id", "status"),
     )
 
 
