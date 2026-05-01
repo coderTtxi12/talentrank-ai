@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import List
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,22 @@ class Settings(BaseSettings):
 
     HOST: str = Field(default="0.0.0.0")
     PORT: int = Field(default=8000)
+
+    # Browser clients (Next.js dev / prod origin). Comma-separated in .env.
+    CORS_ORIGINS: List[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        description="Allowed origins for browser fetch from the frontend.",
+    )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+        return value
 
     # PostgreSQL
     DATABASE_URL: str = Field(

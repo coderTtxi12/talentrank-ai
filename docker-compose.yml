@@ -44,7 +44,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: orbio-api
     restart: unless-stopped
@@ -54,14 +54,18 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - .env
+      - ./backend/.env
     environment:
-      # Override host-only values from .env so the container talks to the
-      # services on the compose network rather than to localhost.
+      # Override host-only values from backend/.env so the container talks to
+      # the services on the compose network rather than to localhost. Also
+      # let the root .env steer LOG_LEVEL / ENVIRONMENT for ALL services
+      # (api + workers) instead of having to update backend/.env separately.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
       REDIS_URL: redis://redis:6379/0
       HOST: 0.0.0.0
       PORT: "8000"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
@@ -75,7 +79,7 @@ services:
 
   sentiment-analysis-worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: workers/sentiment_analysis/Dockerfile
     container_name: orbio-sentiment-analysis-worker
     restart: unless-stopped
@@ -89,13 +93,31 @@ services:
 
   listwise-plackett-luce-worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: workers/listwise_plackett_luce/Dockerfile
     container_name: orbio-listwise-plackett-luce-worker
     restart: unless-stopped
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+
+  frontend:
+    build:
+      context: ./frontend-chat
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are inlined at build time by Next.js, so they
+        # must be passed as build args (not just runtime env). The browser
+        # talks to the API via the host-published port, not the compose
+        # network, so we use localhost:${API_PORT}.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${API_PORT:-8000}}
+    container_name: orbio-frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
 
 volumes:
   pg_data:
