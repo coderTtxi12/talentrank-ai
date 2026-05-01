@@ -73,3 +73,6 @@ backend/COMMIT_FORMAT.md
 
 # --- Vector store ---
 backend/.chroma/
+
+# --- Local Docker dev override (bind mounts + uvicorn reload) ---
+docker-compose.override.yml

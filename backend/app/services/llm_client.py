@@ -108,7 +108,7 @@ def _fallback_envelope(reply: str, *, reason: str) -> Dict[str, Any]:
         "state_updates": {},
         "next_action": "ask_field",
         "next_field_to_ask": None,
-        "candidate_status_hint": "in_progress",
+        "candidate_status_hint": "new",
         "is_completed": False,
         "security_flag": "none",
         "needs_human": False,

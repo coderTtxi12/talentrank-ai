@@ -308,12 +308,13 @@ def _update_state_pg_sync(
             applied["city_zone"] = candidate.city_zone
 
         status_hint = _candidate_status_or_none(candidate_status_hint)
+        # Only PostgreSQL trigger `trg_candidate_in_progress_on_license` may set
+        # `in_progress` (when drivers_license becomes non-null while status is new).
+        if status_hint == CandidateStatus.IN_PROGRESS:
+            status_hint = None
         if status_hint is not None:
             candidate.status = status_hint
             applied["status"] = status_hint.value
-        elif applied and candidate.status == CandidateStatus.NEW:
-            candidate.status = CandidateStatus.IN_PROGRESS
-            applied["status"] = candidate.status.value
 
         if is_completed:
             setattr(candidate, "is_completed", True)

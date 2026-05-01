@@ -61,7 +61,7 @@ class AgentEnvelope(BaseModel):
     )
     next_action: NextActionLiteral = Field(default="ask_field")
     next_field_to_ask: Optional[str] = None
-    candidate_status_hint: CandidateStatusLiteral = Field(default="in_progress")
+    candidate_status_hint: CandidateStatusLiteral = Field(default="new")
     is_completed: bool = Field(
         default=False,
         description="True when screening is fully completed for this candidate.",
