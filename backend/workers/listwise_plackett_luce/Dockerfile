@@ -22,4 +22,4 @@ RUN pip install -r /app/requirements.txt
 COPY app /app/app
 COPY prompts /app/prompts
 
-CMD ["python", "-m", "app.workers.listwise_plackett_luce_worker"]
+CMD ["python", "-m", "app.workers.listwise_plackett_luce.worker"]

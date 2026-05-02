@@ -2,30 +2,36 @@
 
 Listens on the Postgres `candidate_completed` channel (populated by the trigger
 defined in migration `0002_candidate_completed_notify`). Whenever a candidate
-flips `is_completed` to true, the worker logs that it has been activated. Real
-sentiment analysis logic will be plugged in here later.
+flips `is_completed` to true, phase 1 applies hard filters (ORM), then future
+sentiment logic can run here.
 
 Design notes:
-    * Uses `psycopg.AsyncConnection` directly, NOT SQLAlchemy. LISTEN/NOTIFY
-      requires a dedicated connection in autocommit mode and an idle wait
-      loop, which doesn't fit the SQLAlchemy session pattern.
-    * Holds a single idle connection per worker process. No polling.
+    * Uses `psycopg.AsyncConnection` directly for LISTEN/NOTIFY — needs a
+      dedicated connection in autocommit mode and an idle wait loop.
+    * Reads and updates screening rows via sync SQLAlchemy `SessionLocal`
+      inside `asyncio.to_thread` so ORM stays single-threaded per operation.
     * On disconnect / transient error the loop reconnects with exponential
       backoff capped at `_MAX_BACKOFF_SECONDS`.
 
 Run locally:
-    python -m app.workers.sentiment_analysis_worker
+    python -m app.workers.sentiment_analysis.worker
 """
 
 from __future__ import annotations
 
 import asyncio
 import signal
+import uuid
 
 import psycopg
 
 from app.core.config import settings
+from app.core.database import SessionLocal
 from app.core.logging import configure_logging, get_logger
+from app.models.database import Candidate, CandidateStatus
+from app.workers.sentiment_analysis.grupo_sazon_coverage_cities import (
+    city_zone_in_coverage,
+)
 
 logger = get_logger(__name__)
 
@@ -49,14 +55,67 @@ def _psycopg_dsn() -> str:
     return url
 
 
-async def _handle_notification(payload: str) -> None:
-    """Placeholder action triggered when a candidate completes screening."""
+def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> None:
+    """Si el screening está completo, aplicar descalificación dura por licencia o ciudad."""
 
-    logger.info(
-        "📬 [%s] he entrado en acción para candidate_id=%s",
-        WORKER_NAME,
-        payload or "<empty>",
-    )
+    with SessionLocal() as db:
+        candidate = db.get(Candidate, candidate_id)
+        if candidate is None:
+            logger.warning(
+                "[%s] phase1: candidato no encontrado candidate_id=%s",
+                WORKER_NAME,
+                candidate_id,
+            )
+            return
+
+        if not candidate.is_completed:
+            logger.warning(
+                "[%s] phase1: is_completed=false (inesperado tras NOTIFY) candidate_id=%s",
+                WORKER_NAME,
+                candidate_id,
+            )
+            return
+
+        reasons: list[str] = []
+
+        if candidate.drivers_license is None or candidate.drivers_license is False:
+            reasons.append("drivers_license_missing_or_false")
+
+        if not city_zone_in_coverage(candidate.city_zone):
+            reasons.append("city_zone_out_of_coverage")
+
+        if reasons:
+            candidate.status = CandidateStatus.HARD_DISQ
+            db.commit()
+            logger.info(
+                "[%s] phase1: HARD_DISQ candidate_id=%s reasons=%s",
+                WORKER_NAME,
+                candidate_id,
+                reasons,
+            )
+        else:
+            logger.info(
+                "[%s] phase1: filtros duros OK candidate_id=%s",
+                WORKER_NAME,
+                candidate_id,
+            )
+
+
+async def _handle_notification(payload: str) -> None:
+    """Acciones cuando un candidato marca screening completado."""
+
+    raw = (payload or "").strip()
+    if not raw:
+        logger.warning("[%s] NOTIFY con payload vacío", WORKER_NAME)
+        return
+
+    try:
+        candidate_id = uuid.UUID(raw)
+    except ValueError:
+        logger.warning("[%s] payload UUID inválido: %r", WORKER_NAME, raw)
+        return
+
+    await asyncio.to_thread(_phase1_hard_filters_sync, candidate_id)
 
 
 async def _listen_loop(stop_event: asyncio.Event) -> None:

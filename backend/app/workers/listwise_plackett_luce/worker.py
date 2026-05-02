@@ -7,7 +7,7 @@ and waits for a stop signal so the container stays alive and visible in
 `docker compose ps`.
 
 Run locally:
-    python -m app.workers.listwise_plackett_luce_worker
+    python -m app.workers.listwise_plackett_luce.worker
 """
 
 from __future__ import annotations
