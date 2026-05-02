@@ -6,12 +6,17 @@ import { setFilters, clearFilters, fetchLoans } from '@/store/slices/loansSlice'
 import { Button } from '@/components/ui';
 import type { CountryCode, LoanStatus } from '@/types/loan';
 import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
+import {
+  FILTERS_LABEL_COUNTRY,
+  FILTERS_ALL_COUNTRIES,
+  FILTERS_LABEL_STATUS,
+  FILTERS_ALL_STATUSES,
+  FILTERS_CLEAR,
+} from '@/constants/branding';
 
 const countries: { code: CountryCode; name: string; flag: string }[] = [
   { code: 'ES', name: 'España', flag: '🇪🇸' },
   { code: 'MX', name: 'México', flag: '🇲🇽' },
-  { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
-  { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
 ];
 
 const statuses: { value: LoanStatus; label: string }[] =
@@ -52,14 +57,14 @@ const LoanFilters = () => {
         {/* Country filter */}
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-            Country
+            {FILTERS_LABEL_COUNTRY}
           </label>
           <select
             value={filters.country_code || ''}
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="">All Countries</option>
+            <option value="">{FILTERS_ALL_COUNTRIES}</option>
             {countries.map((country) => (
               <option key={country.code} value={country.code}>
                 {country.flag} {country.name}
@@ -71,14 +76,14 @@ const LoanFilters = () => {
         {/* Status filter */}
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-            Status
+            {FILTERS_LABEL_STATUS}
           </label>
           <select
             value={filters.status || ''}
             onChange={(e) => handleStatusChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="">All Statuses</option>
+            <option value="">{FILTERS_ALL_STATUSES}</option>
             {statuses.map((status) => (
               <option key={status.value} value={status.value}>
                 {status.label}
@@ -107,7 +112,7 @@ const LoanFilters = () => {
         {hasActiveFilters && (
           <div className="flex items-end">
             <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-              Clear Filters
+              {FILTERS_CLEAR}
             </Button>
           </div>
         )}

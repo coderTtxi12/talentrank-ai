@@ -32,6 +32,10 @@ NextActionLiteral = Literal[
 CandidateStatusLiteral = Literal[
     "new",
     "in_progress",
+    "hard_filter",
+    "sentiment_analysis",
+    "listwise",
+    "plackett_luce",
     "qualified",
     "qualified_flagged",
     "soft_disq",

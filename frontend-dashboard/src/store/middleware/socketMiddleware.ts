@@ -12,6 +12,7 @@ import {
 } from '@/store/slices/loansSlice';
 import { CANDIDATE_STATUS_LABELS, type CandidateStatus } from '@/types/loan';
 import { addNotification } from '@/store/slices/uiSlice';
+import { TOAST_NEW_CANDIDATE, TOAST_STATUS_LINE } from '@/constants/branding';
 
 let listenersInitialized = false;
 let initialConnectDone = false;
@@ -27,7 +28,7 @@ const setupSocketListeners = (dispatch: (action: any) => unknown): void => {
     dispatch(
       addNotification({
         type: 'info',
-        message: `Nueva solicitud: ${data.loan_id}`,
+        message: TOAST_NEW_CANDIDATE(data.loan_id),
         duration: 5000,
       })
     );
@@ -58,10 +59,11 @@ const setupSocketListeners = (dispatch: (action: any) => unknown): void => {
                 data.new_status === 'soft_disq'
               ? 'error'
               : 'info',
-        message: `Solicitud ${data.loan_id.slice(0, 8)}… → ${
+        message: TOAST_STATUS_LINE(
+          data.loan_id.slice(0, 8),
           CANDIDATE_STATUS_LABELS[data.new_status as CandidateStatus] ??
-          data.new_status
-        }`,
+            data.new_status
+        ),
         duration: 5000,
       })
     );

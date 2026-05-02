@@ -4,11 +4,12 @@ Listens on the Postgres `candidate_completed` channel (populated by the trigger
 defined in migration `0002_candidate_completed_notify`). Whenever a candidate
 flips `is_completed` to true:
 
-    1. Phase 1 - hard filters (driver's license, coverage city) -> may set
-       `candidates.status = HARD_DISQ`.
-    2. Phase 2 - **only when phase 1 passes**: run the sentiment-analysis
-       LLM agent over the full conversation transcript and upsert the result
-       into `sentiment_results`. Hard-disqualified candidates skip this step
+    1. Phase 1 - set `candidates.status = HARD_FILTER`, then hard filters
+       (driver's license, coverage city) -> may set `HARD_DISQ` on failure.
+    2. Phase 2 - **only when phase 1 passes**: set `status = SENTIMENT_ANALYSIS`,
+       run the sentiment-analysis LLM agent over the full conversation transcript
+       and upsert the result into `sentiment_results`. Hard-disqualified candidates
+       skip this step
        so we don't burn LLM tokens on rejected applications.
 
 Design notes:
@@ -106,6 +107,14 @@ def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> bool:
             )
             return False
 
+        candidate.status = CandidateStatus.HARD_FILTER
+        db.commit()
+        logger.info(
+            "[%s] phase1: status=hard_filter (inicio evaluación) candidate_id=%s",
+            WORKER_NAME,
+            candidate_id,
+        )
+
         reasons: list[str] = []
 
         if candidate.drivers_license is None or candidate.drivers_license is False:
@@ -131,6 +140,17 @@ def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> bool:
             candidate_id,
         )
         return True
+
+
+def _set_candidate_status_sync(candidate_id: uuid.UUID, status: CandidateStatus) -> None:
+    """Persist a status transition (used between pipeline phases)."""
+
+    with SessionLocal() as db:
+        candidate = db.get(Candidate, candidate_id)
+        if candidate is None:
+            return
+        candidate.status = status
+        db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +247,17 @@ def _persist_sentiment_sync(
 
 async def _phase2_sentiment_analysis(candidate_id: uuid.UUID) -> None:
     """Run the sentiment LLM agent and persist the result."""
+
+    await asyncio.to_thread(
+        _set_candidate_status_sync,
+        candidate_id,
+        CandidateStatus.SENTIMENT_ANALYSIS,
+    )
+    logger.info(
+        "[%s] phase2: status=sentiment_analysis candidate_id=%s",
+        WORKER_NAME,
+        candidate_id,
+    )
 
     loaded = await asyncio.to_thread(_load_latest_conversation_sync, candidate_id)
     if loaded is None:

@@ -14,6 +14,17 @@ import {
 } from '@/components/loans';
 import { subscribeToLoan, unsubscribeFromLoan } from '@/services/socket';
 import type { LoanStatus, LoanStatusHistory } from '@/types/loan';
+import {
+  DETAIL_TITLE,
+  DETAIL_BACK,
+  DETAIL_ERROR_LOAD,
+  DETAIL_NOT_FOUND,
+  DETAIL_NOT_FOUND_DESC,
+  DETAIL_CARD_INFO,
+  DETAIL_CARD_HISTORY,
+  DETAIL_BTN_CHANGE_STATUS,
+  DETAIL_NAV_SHORT,
+} from '@/constants/branding';
 
 const LoanDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -88,9 +99,9 @@ const LoanDetail = () => {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-4">❌</div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Loan</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">{DETAIL_ERROR_LOAD}</h2>
         <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => navigate('/loans')}>Back to Loans</Button>
+        <Button onClick={() => navigate('/loans')}>{DETAIL_NAV_SHORT}</Button>
       </div>
     );
   }
@@ -99,9 +110,9 @@ const LoanDetail = () => {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-4">🔍</div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Loan Not Found</h2>
-        <p className="text-gray-600 mb-4">The requested loan could not be found.</p>
-        <Button onClick={() => navigate('/loans')}>Back to Loans</Button>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">{DETAIL_NOT_FOUND}</h2>
+        <p className="text-gray-600 mb-4">{DETAIL_NOT_FOUND_DESC}</p>
+        <Button onClick={() => navigate('/loans')}>{DETAIL_NAV_SHORT}</Button>
       </div>
     );
   }
@@ -116,16 +127,16 @@ const LoanDetail = () => {
               to="/loans"
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
-              ← Back to Loans
+              {DETAIL_BACK}
             </Link>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Loan Details</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{DETAIL_TITLE}</h1>
           <p className="text-gray-600 font-mono text-sm">{selectedLoan.id}</p>
         </div>
         <div className="flex items-center gap-4">
           <RealTimeIndicator />
           <Button onClick={() => setShowStatusModal(true)}>
-            Change Status
+            {DETAIL_BTN_CHANGE_STATUS}
           </Button>
         </div>
       </div>
@@ -134,14 +145,14 @@ const LoanDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info - 2 columns */}
         <div className="lg:col-span-2">
-          <Card title="Loan Information">
+          <Card title={DETAIL_CARD_INFO}>
             <LoanInfo loan={selectedLoan} />
           </Card>
         </div>
 
         {/* Status Timeline - 1 column */}
         <div>
-          <Card title="Status History">
+          <Card title={DETAIL_CARD_HISTORY}>
             <StatusTimeline history={history} loading={historyLoading} />
           </Card>
         </div>

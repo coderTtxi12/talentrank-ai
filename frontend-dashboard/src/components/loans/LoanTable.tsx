@@ -3,6 +3,18 @@
  */
 import { Link } from 'react-router-dom';
 import type { Loan, CountryCode } from '@/types/loan';
+import {
+  TABLE_EMPTY,
+  TABLE_EMPTY_HINT,
+  TABLE_COL_COUNTRY,
+  TABLE_COL_NAME,
+  TABLE_COL_DOC,
+  TABLE_COL_AMOUNT,
+  TABLE_COL_STATUS,
+  TABLE_COL_RISK,
+  TABLE_COL_DATE,
+  TABLE_TITLE_REVIEW,
+} from '@/constants/branding';
 import { StatusBadge } from '@/components/loans';
 import clsx from 'clsx';
 
@@ -14,8 +26,6 @@ interface LoanTableProps {
 const countries: Record<CountryCode, { name: string; flag: string }> = {
   ES: { name: 'España', flag: '🇪🇸' },
   MX: { name: 'México', flag: '🇲🇽' },
-  CO: { name: 'Colombia', flag: '🇨🇴' },
-  BR: { name: 'Brasil', flag: '🇧🇷' },
 };
 
 const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
@@ -48,8 +58,8 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-3">📋</div>
-        <p className="text-gray-500">No loans found</p>
-        <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+        <p className="text-gray-500">{TABLE_EMPTY}</p>
+        <p className="text-sm text-gray-400 mt-1">{TABLE_EMPTY_HINT}</p>
       </div>
     );
   }
@@ -63,25 +73,25 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
               ID
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Country
+              {TABLE_COL_COUNTRY}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Applicant
+              {TABLE_COL_NAME}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Document
+              {TABLE_COL_DOC}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Amount
+              {TABLE_COL_AMOUNT}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Status
+              {TABLE_COL_STATUS}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Risk Score
+              {TABLE_COL_RISK}
             </th>
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-              Date
+              {TABLE_COL_DATE}
             </th>
           </tr>
         </thead>
@@ -102,7 +112,7 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
                   {loan.id.slice(0, 8)}...
                 </Link>
                 {loan.requires_review && (
-                  <span className="ml-2 text-yellow-600" title="Requires review">
+                  <span className="ml-2 text-yellow-600" title={TABLE_TITLE_REVIEW}>
                     ⚠️
                   </span>
                 )}

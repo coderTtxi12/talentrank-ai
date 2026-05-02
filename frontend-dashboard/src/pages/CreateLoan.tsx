@@ -8,6 +8,13 @@ import { createLoan } from '@/store/slices/loansSlice';
 import { addNotification } from '@/store/slices/uiSlice';
 import { LoanForm } from '@/components/loans';
 import type { LoanCreateRequest } from '@/types/loan';
+import {
+  CREATE_TITLE,
+  CREATE_SUBTITLE,
+  CREATE_BACK,
+  CREATE_SUCCESS,
+  CREATE_ERROR_FALLBACK,
+} from '@/constants/branding';
 
 interface ErrorInfo {
   message: string;
@@ -30,7 +37,7 @@ const CreateLoan = () => {
       dispatch(
         addNotification({
           type: 'success',
-          message: 'Loan application created successfully!',
+          message: CREATE_SUCCESS,
           duration: 5000,
         })
       );
@@ -50,7 +57,7 @@ const CreateLoan = () => {
           errors: err.errors || [],
         };
       } else {
-        errorInfo = { message: 'Failed to create loan application' };
+        errorInfo = { message: CREATE_ERROR_FALLBACK };
       }
       
       setError(errorInfo);
@@ -76,13 +83,11 @@ const CreateLoan = () => {
             to="/loans"
             className="text-gray-500 hover:text-gray-700 transition-colors"
           >
-            ← Back to Loans
+            {CREATE_BACK}
           </Link>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Create Loan Application</h1>
-        <p className="text-gray-600">
-          Fill out the form below to create a new loan application
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{CREATE_TITLE}</h1>
+        <p className="text-gray-600">{CREATE_SUBTITLE}</p>
       </div>
 
       {/* Error message */}

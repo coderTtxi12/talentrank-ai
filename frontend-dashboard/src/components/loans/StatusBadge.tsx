@@ -25,6 +25,22 @@ const statusConfig: Record<
     label: CANDIDATE_STATUS_LABELS.in_progress,
     className: 'bg-blue-100 text-blue-800 border-blue-200',
   },
+  hard_filter: {
+    label: CANDIDATE_STATUS_LABELS.hard_filter,
+    className: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  },
+  sentiment_analysis: {
+    label: CANDIDATE_STATUS_LABELS.sentiment_analysis,
+    className: 'bg-pink-100 text-pink-800 border-pink-200',
+  },
+  listwise: {
+    label: CANDIDATE_STATUS_LABELS.listwise,
+    className: 'bg-teal-100 text-teal-800 border-teal-200',
+  },
+  plackett_luce: {
+    label: CANDIDATE_STATUS_LABELS.plackett_luce,
+    className: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
   qualified: {
     label: CANDIDATE_STATUS_LABELS.qualified,
     className: 'bg-green-100 text-green-800 border-green-200',

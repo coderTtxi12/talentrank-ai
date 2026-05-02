@@ -7,6 +7,14 @@ import { setFilters, fetchLoans } from '@/store/slices/loansSlice';
 import clsx from 'clsx';
 import type { LoanStatus, CountryCode, CandidateStatus } from '@/types/loan';
 import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
+import {
+  NAV_HOME,
+  NAV_CANDIDATES,
+  NAV_NEW_CANDIDATE,
+  FILTER_BY_COUNTRY,
+  FILTER_BY_STATUS,
+  CLEAR_FILTERS,
+} from '@/constants/branding';
 
 interface NavItem {
   name: string;
@@ -16,7 +24,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   {
-    name: 'Inicio',
+    name: NAV_HOME,
     path: '/',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,7 +38,7 @@ const navigation: NavItem[] = [
     ),
   },
   {
-    name: 'Solicitudes',
+    name: NAV_CANDIDATES,
     path: '/loans',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +52,7 @@ const navigation: NavItem[] = [
     ),
   },
   {
-    name: 'Nueva solicitud',
+    name: NAV_NEW_CANDIDATE,
     path: '/loans/new',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,8 +70,6 @@ const navigation: NavItem[] = [
 const countries = [
   { code: 'ES', name: 'España', flag: '🇪🇸' },
   { code: 'MX', name: 'México', flag: '🇲🇽' },
-  { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
-  { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
 ];
 
 const SIDEBAR_STATUS_STYLE: Record<
@@ -72,6 +78,19 @@ const SIDEBAR_STATUS_STYLE: Record<
 > = {
   new: { color: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
   in_progress: { color: 'bg-blue-100 text-blue-800', dotColor: 'bg-blue-400' },
+  hard_filter: {
+    color: 'bg-indigo-100 text-indigo-800',
+    dotColor: 'bg-indigo-500',
+  },
+  sentiment_analysis: {
+    color: 'bg-pink-100 text-pink-800',
+    dotColor: 'bg-pink-500',
+  },
+  listwise: { color: 'bg-teal-100 text-teal-800', dotColor: 'bg-teal-500' },
+  plackett_luce: {
+    color: 'bg-amber-100 text-amber-800',
+    dotColor: 'bg-amber-500',
+  },
   qualified: { color: 'bg-green-100 text-green-800', dotColor: 'bg-green-500' },
   qualified_flagged: {
     color: 'bg-purple-100 text-purple-800',
@@ -164,7 +183,7 @@ const Sidebar = () => {
         {/* Country filters */}
         <div className="mb-4">
           <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Filter by Country
+            {FILTER_BY_COUNTRY}
           </h3>
           <div className="space-y-1">
             {countries.map((country) => (
@@ -188,7 +207,7 @@ const Sidebar = () => {
         {/* Status filters */}
         <div>
           <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Filter by Status
+            {FILTER_BY_STATUS}
           </h3>
           <div className="space-y-1">
             {statuses.map((status) => (
@@ -217,7 +236,7 @@ const Sidebar = () => {
             onClick={() => dispatch(setFilters({ country_code: null, status: null, page: 1 }))}
             className="w-full mt-4 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg"
           >
-            Clear all filters
+            {CLEAR_FILTERS}
           </button>
         )}
       </div>

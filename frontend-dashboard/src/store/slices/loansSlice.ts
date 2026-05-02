@@ -10,6 +10,14 @@ import type {
   LoanStatistics 
 } from '@/types/loan';
 import { api } from '@/services/api';
+import {
+  ERR_FETCH_LIST,
+  ERR_FETCH_ONE,
+  ERR_CREATE,
+  ERR_UPDATE_STATUS,
+  ERR_HISTORY,
+  ERR_STATS,
+} from '@/constants/branding';
 
 // Initial state
 const initialState: LoansState = {
@@ -53,7 +61,7 @@ export const fetchLoans = createAsyncThunk(
       const response = await api.get(`/loans?${params.toString()}`);
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to fetch loans';
+      const message = error.response?.data?.message || ERR_FETCH_LIST;
       return rejectWithValue(message);
     }
   }
@@ -66,7 +74,7 @@ export const fetchLoanById = createAsyncThunk(
       const response = await api.get(`/loans/${loanId}`);
       return response.data as Loan;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to fetch loan';
+      const message = error.response?.data?.message || ERR_FETCH_ONE;
       return rejectWithValue(message);
     }
   }
@@ -88,7 +96,7 @@ export const createLoan = createAsyncThunk(
       
       // Extract detailed error message and errors array
       const errorData = error.response?.data;
-      let message = 'Failed to create loan';
+      let message = ERR_CREATE;
       let errors: string[] = [];
       
       if (errorData?.detail) {
@@ -97,7 +105,7 @@ export const createLoan = createAsyncThunk(
           errors = errorData.detail.map((err: any) => 
             `${err.loc?.join('.')}: ${err.msg}`
           );
-          message = `Validation error: ${errors.join(', ')}`;
+          message = `Error de validación: ${errors.join(', ')}`;
         } else if (typeof errorData.detail === 'object') {
           // Custom API exception format: { message, errors }
           message = errorData.detail.message || message;
@@ -125,7 +133,7 @@ export const updateLoanStatus = createAsyncThunk(
       const response = await api.patch(`/loans/${loanId}/status`, { status, reason });
       return response.data as Loan;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to update status';
+      const message = error.response?.data?.message || ERR_UPDATE_STATUS;
       return rejectWithValue(message);
     }
   }
@@ -138,7 +146,7 @@ export const fetchLoanHistory = createAsyncThunk(
       const response = await api.get(`/loans/${loanId}/history`);
       return { loanId, history: response.data };
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to fetch history';
+      const message = error.response?.data?.message || ERR_HISTORY;
       return rejectWithValue(message);
     }
   }
@@ -152,7 +160,7 @@ export const fetchStatistics = createAsyncThunk(
       const response = await api.get(url);
       return response.data as LoanStatistics;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to fetch statistics';
+      const message = error.response?.data?.message || ERR_STATS;
       return rejectWithValue(message);
     }
   }
@@ -257,7 +265,7 @@ const loansSlice = createSlice({
         const payload = action.payload as any;
         state.error = typeof payload === 'string' 
           ? payload 
-          : payload?.message || 'Failed to create loan';
+          : payload?.message || ERR_CREATE;
       });
 
     // Update status

@@ -4,7 +4,7 @@
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
-import { APP_NAME } from '@/constants/branding';
+import { APP_NAME, NAV_CONTEXT_LINE } from '@/constants/branding';
 
 const Navbar = () => {
   const dispatch = useAppDispatch();
@@ -44,17 +44,22 @@ const Navbar = () => {
               </svg>
             </button>
 
-            <Link to="/" className="flex items-center ml-4">
-              <span className="text-2xl mr-2">🏦</span>
-              <span className="text-xl font-bold text-primary-600">{APP_NAME}</span>
+            <Link to="/" className="flex flex-col ml-4">
+              <span className="flex items-center">
+                <span className="text-2xl mr-2" aria-hidden>
+                  🛵
+                </span>
+                <span className="text-xl font-bold text-primary-600">{APP_NAME}</span>
+              </span>
+              <span className="hidden sm:block text-xs text-gray-500 mt-0.5 pl-9">
+                {NAV_CONTEXT_LINE}
+              </span>
             </Link>
           </div>
 
           <div className="hidden md:flex items-center gap-2 text-lg">
             <span title="España">🇪🇸</span>
             <span title="México">🇲🇽</span>
-            <span title="Colombia">🇨🇴</span>
-            <span title="Brasil">🇧🇷</span>
           </div>
         </div>
       </div>

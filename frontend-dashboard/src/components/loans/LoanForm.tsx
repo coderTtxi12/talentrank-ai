@@ -14,6 +14,17 @@ import {
   getCurrency 
 } from '@/utils/validators';
 import type { CountryCode, LoanCreateRequest } from '@/types/loan';
+import {
+  FORM_CARD_COUNTRY_TITLE,
+  FORM_CARD_COUNTRY_SUB,
+  FORM_CARD_PERSON_TITLE,
+  FORM_CARD_PERSON_SUB,
+  FORM_CARD_AMOUNTS_TITLE,
+  FORM_CARD_AMOUNTS_SUB,
+  FORM_BTN_RESET,
+  FORM_BTN_SUBMIT,
+  FORM_BTN_SUBMIT_LOADING,
+} from '@/constants/branding';
 
 interface LoanFormProps {
   onSubmit: (data: LoanCreateRequest) => Promise<void>;
@@ -23,13 +34,11 @@ interface LoanFormProps {
 const countries: { code: CountryCode; name: string; flag: string }[] = [
   { code: 'ES', name: 'España', flag: '🇪🇸' },
   { code: 'MX', name: 'México', flag: '🇲🇽' },
-  { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
-  { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
 ];
 
 // Base schema with dynamic document validation based on country_code
 const loanSchema = z.object({
-  country_code: z.enum(['ES', 'MX', 'CO', 'BR'] as const),
+  country_code: z.enum(['ES', 'MX'] as const),
   document_number: z
     .string()
     .min(1, 'Document number is required')
@@ -94,8 +103,6 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
   const documentExamples: Record<CountryCode, string> = {
     ES: '12345678Z', // DNI válido (checksum: 12345678 % 23 = 0 -> Z)
     MX: 'KYBB010115HDFDFCX0', // CURP válido (fecha válida: 01/01/15, estado DF válido)
-    CO: '1234567890', // CC válido (6-10 dígitos, no empieza con 0)
-    BR: '12345678901', // CPF formato válido (11 dígitos, backend validará checksum)
   };
 
   const handleUseExample = () => {
@@ -129,7 +136,7 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {/* Country Selection */}
-      <Card title="Country" subtitle="Select the country for this loan application">
+      <Card title={FORM_CARD_COUNTRY_TITLE} subtitle={FORM_CARD_COUNTRY_SUB}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {countries.map((country) => (
             <label
@@ -163,7 +170,7 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
       </Card>
 
       {/* Applicant Information */}
-      <Card title="Applicant Information" subtitle="Enter the applicant's personal details">
+      <Card title={FORM_CARD_PERSON_TITLE} subtitle={FORM_CARD_PERSON_SUB}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Full Name"
@@ -202,7 +209,7 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
       </Card>
 
       {/* Loan Details */}
-      <Card title="Loan Details" subtitle="Specify the loan amount and income">
+      <Card title={FORM_CARD_AMOUNTS_TITLE} subtitle={FORM_CARD_AMOUNTS_SUB}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Controller
             name="amount_requested"
@@ -279,10 +286,10 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
       {/* Submit */}
       <div className="flex justify-end gap-4">
         <Button type="button" variant="ghost" onClick={() => reset()}>
-          Reset Form
+          {FORM_BTN_RESET}
         </Button>
         <Button type="submit" loading={loading} size="lg">
-          {loading ? 'Creating...' : 'Create Loan Application'}
+          {loading ? FORM_BTN_SUBMIT_LOADING : FORM_BTN_SUBMIT}
         </Button>
       </div>
     </form>

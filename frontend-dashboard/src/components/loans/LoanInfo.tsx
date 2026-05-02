@@ -2,6 +2,13 @@
  * Loan information display component.
  */
 import type { Loan, CountryCode } from '@/types/loan';
+import {
+  INFO_STATUS_LABEL,
+  INFO_RISK_LABEL,
+  INFO_REVIEW_BANNER,
+  INFO_SECTION_APPLICANT,
+  INFO_SECTION_AMOUNTS,
+} from '@/constants/branding';
 import { StatusBadge } from '@/components/loans';
 
 interface LoanInfoProps {
@@ -11,8 +18,6 @@ interface LoanInfoProps {
 const countries: Record<CountryCode, { name: string; flag: string }> = {
   ES: { name: 'España', flag: '🇪🇸' },
   MX: { name: 'México', flag: '🇲🇽' },
-  CO: { name: 'Colombia', flag: '🇨🇴' },
-  BR: { name: 'Brasil', flag: '🇧🇷' },
 };
 
 const LoanInfo = ({ loan }: LoanInfoProps) => {
@@ -46,21 +51,21 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Current Status</p>
+            <p className="text-sm text-gray-500">{INFO_STATUS_LABEL}</p>
             <div className="mt-1">
               <StatusBadge status={loan.status} size="lg" />
             </div>
           </div>
           {loan.risk_score !== null && (
             <div className="text-right">
-              <p className="text-sm text-gray-500">Risk Score</p>
+              <p className="text-sm text-gray-500">{INFO_RISK_LABEL}</p>
               <p className="text-2xl font-bold text-gray-900">{loan.risk_score}</p>
             </div>
           )}
         </div>
         {loan.requires_review && (
           <div className="mt-3 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-            ⚠️ This loan requires manual review
+            ⚠️ {INFO_REVIEW_BANNER}
           </div>
         )}
       </div>
@@ -68,7 +73,7 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
       {/* Applicant Information */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-          Applicant Information
+          {INFO_SECTION_APPLICANT}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <InfoRow label="Full Name">{loan.full_name}</InfoRow>
@@ -82,7 +87,7 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
       {/* Loan Details */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-          Loan Details
+          {INFO_SECTION_AMOUNTS}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <InfoRow label="Country">

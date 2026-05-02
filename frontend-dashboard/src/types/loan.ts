@@ -6,6 +6,10 @@
 export type CandidateStatus =
   | 'new'
   | 'in_progress'
+  | 'hard_filter'
+  | 'sentiment_analysis'
+  | 'listwise'
+  | 'plackett_luce'
   | 'qualified'
   | 'qualified_flagged'
   | 'soft_disq'
@@ -19,6 +23,10 @@ export type LoanStatus = CandidateStatus;
 export const CANDIDATE_STATUS_ORDER: CandidateStatus[] = [
   'new',
   'in_progress',
+  'hard_filter',
+  'sentiment_analysis',
+  'listwise',
+  'plackett_luce',
   'qualified',
   'qualified_flagged',
   'soft_disq',
@@ -29,7 +37,11 @@ export const CANDIDATE_STATUS_ORDER: CandidateStatus[] = [
 
 export const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
   new: 'Nuevo',
-  in_progress: 'En progreso',
+  in_progress: 'En progreso (screening IA)',
+  hard_filter: 'Filtro duro (requisitos)',
+  sentiment_analysis: 'Análisis de sentimiento',
+  listwise: 'Ranking listwise',
+  plackett_luce: 'Plackett–Luce',
   qualified: 'Calificado',
   qualified_flagged: 'Calificado (marcado)',
   soft_disq: 'Descalificación suave',
@@ -42,6 +54,10 @@ export const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
 export const CANDIDATE_STATUS_CHART_COLORS: Record<CandidateStatus, string> = {
   new: 'bg-yellow-500',
   in_progress: 'bg-blue-400',
+  hard_filter: 'bg-indigo-500',
+  sentiment_analysis: 'bg-pink-500',
+  listwise: 'bg-teal-500',
+  plackett_luce: 'bg-amber-500',
   qualified: 'bg-green-500',
   qualified_flagged: 'bg-purple-500',
   soft_disq: 'bg-orange-500',
@@ -50,7 +66,7 @@ export const CANDIDATE_STATUS_CHART_COLORS: Record<CandidateStatus, string> = {
   abandoned: 'bg-gray-400',
 };
 
-export type CountryCode = 'ES' | 'MX' | 'CO' | 'BR';
+export type CountryCode = 'ES' | 'MX';
 
 export type DocumentType = 'DNI' | 'CURP' | 'CC' | 'CPF';
 

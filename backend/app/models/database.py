@@ -83,7 +83,16 @@ class Channel(str, enum.Enum):
 
 class CandidateStatus(str, enum.Enum):
     NEW = "new"
+    # Conversational screening with the IA agent (requirements capture).
     IN_PROGRESS = "in_progress"
+    # Mandatory-requirements gate (hard filter / CP-1 style evaluation).
+    HARD_FILTER = "hard_filter"
+    # Sentiment analysis over the conversation transcript.
+    SENTIMENT_ANALYSIS = "sentiment_analysis"
+    # Listwise ranking stage (ordering candidates as a list).
+    LISTWISE = "listwise"
+    # Plackett–Luce pairwise / choice ranking stage.
+    PLACKETT_LUCE = "plackett_luce"
     QUALIFIED = "qualified"
     QUALIFIED_FLAGGED = "qualified_flagged"
     SOFT_DISQ = "soft_disq"

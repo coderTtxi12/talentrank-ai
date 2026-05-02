@@ -87,14 +87,24 @@ Missing values may continue with uncertainty flags and human-review routing when
 
 ## 5) Candidate status definitions
 
+Pipeline order (typical happy path):
+
+`new` → `in_progress` → `hard_filter` → `sentiment_analysis` → `listwise` → `plackett_luce` → `qualified` / `qualified_flagged`
+
 - `new` — candidate record created, not yet progressed.
-- `in_progress` — screening conversation active.
-- `hard_disq` — failed hard filter (no license or outside coverage).
-- `waitlist` — currently outside coverage but eligible for future openings.
-- `soft_disq` — not a current fit (e.g., schedule/start-date mismatch), re-evaluable.
-- `qualified` — passes hard filters and has required screening data.
+- `in_progress` — IA-led conversational screening (requirements capture per Phase 1–3).
+- `hard_filter` — evaluation of **mandatory** requirements (license, coverage city, consent, etc.; CP-1 style).
+- `sentiment_analysis` — transcript evaluated for sentiment / frustration signals (worker phase).
+- `listwise` — listwise ranking stage (ordering candidates as a list).
+- `plackett_luce` — Plackett–Luce pairwise / choice ranking stage.
+- `qualified` — passes gates and is eligible for recruiter handoff.
 - `qualified_flagged` — qualified with uncertainty/risk flags (e.g., `slot_uncertain`, frustration).
+- `hard_disq` — failed hard filter (e.g., no license or outside coverage).
+- `soft_disq` — not a current fit (e.g., schedule/start-date mismatch), re-evaluable.
+- `waitlist` — outside coverage or timing; eligible for future openings.
 - `abandoned` — candidate stopped responding after re-engagement sequence.
+
+Statuses may also be set manually from the recruiter dashboard when needed.
 
 ---
 

@@ -72,57 +72,12 @@ export const validateCURP = (value: string): boolean => {
 };
 
 /**
- * Validate Colombian CC (Cédula de Ciudadanía).
- * Format: 6-10 digits
- */
-export const validateCC = (value: string): boolean => {
-  const cc = value.replace(/\s/g, '').replace(/\./g, '').replace(/-/g, '');
-  
-  // Must be 6-10 digits
-  if (!/^\d{6,10}$/.test(cc)) {
-    return false;
-  }
-  
-  // Cannot start with 0
-  if (cc.startsWith('0')) {
-    return false;
-  }
-  
-  return true;
-};
-
-/**
- * Validate Brazilian CPF.
- * Format: 11 digits (less strict validation for testing)
- * Note: Backend will perform full validation with check digits
- */
-export const validateCPF = (value: string): boolean => {
-  const cpf = value.replace(/\D/g, '');
-  
-  // Must be 11 digits
-  if (cpf.length !== 11) {
-    return false;
-  }
-  
-  // Check for known invalid CPFs (all same digits)
-  if (/^(\d)\1{10}$/.test(cpf)) {
-    return false;
-  }
-  
-  // Less strict: only validate format, let backend validate check digits
-  // This allows easier testing while backend ensures correctness
-  return /^\d{11}$/.test(cpf);
-};
-
-/**
  * Get validator function by country code.
  */
 export const getDocumentValidator = (countryCode: string): ((value: string) => boolean) => {
   const validators: Record<string, (value: string) => boolean> = {
     ES: validateDNI,
     MX: validateCURP,
-    CO: validateCC,
-    BR: validateCPF,
   };
   
   return validators[countryCode] || (() => true);
@@ -135,8 +90,6 @@ export const getDocumentType = (countryCode: string): string => {
   const types: Record<string, string> = {
     ES: 'DNI',
     MX: 'CURP',
-    CO: 'CC',
-    BR: 'CPF',
   };
   
   return types[countryCode] || 'ID';
@@ -149,8 +102,6 @@ export const getDocumentPlaceholder = (countryCode: string): string => {
   const placeholders: Record<string, string> = {
     ES: '12345678A',
     MX: 'AAAA000000HSSSCCX0',
-    CO: '1234567890',
-    BR: '123.456.789-00',
   };
   
   return placeholders[countryCode] || 'Document number';
@@ -163,8 +114,6 @@ export const getCurrency = (countryCode: string): string => {
   const currencies: Record<string, string> = {
     ES: 'EUR',
     MX: 'MXN',
-    CO: 'COP',
-    BR: 'BRL',
   };
   
   return currencies[countryCode] || 'USD';
@@ -173,8 +122,6 @@ export const getCurrency = (countryCode: string): string => {
 export default {
   validateDNI,
   validateCURP,
-  validateCC,
-  validateCPF,
   getDocumentValidator,
   getDocumentType,
   getDocumentPlaceholder,

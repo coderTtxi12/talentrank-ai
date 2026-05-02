@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { isSocketConnected } from '@/services/socket';
 import clsx from 'clsx';
+import { RT_CONNECTED, RT_OFFLINE } from '@/constants/branding';
 
 const RealTimeIndicator = () => {
   const [connected, setConnected] = useState(false);
@@ -30,7 +31,7 @@ const RealTimeIndicator = () => {
           )}
         />
         <span className={connected ? 'text-green-600' : 'text-gray-500'}>
-          {connected ? 'Live' : 'Offline'}
+          {connected ? RT_CONNECTED : RT_OFFLINE}
         </span>
       </div>
     </div>

@@ -14,13 +14,28 @@ import {
   type LoanStatus,
   type CountryCode,
 } from '@/types/loan';
+import {
+  DASH_TITLE,
+  DASH_SUBTITLE,
+  DASH_BTN_NEW,
+  DASH_STAT_TOTAL,
+  DASH_STAT_RISK,
+  DASH_CHART_STATUS,
+  DASH_CHART_COUNTRY,
+  DASH_RECENT_TITLE,
+  DASH_RECENT_SUBTITLE,
+  DASH_EMPTY,
+  DASH_VIEW_ALL,
+  TABLE_COL_COUNTRY,
+  TABLE_COL_NAME,
+  TABLE_COL_AMOUNT,
+  TABLE_COL_STATUS,
+} from '@/constants/branding';
 
 // Country info
 const countries: Record<CountryCode, { name: string; flag: string }> = {
   ES: { name: 'España', flag: '🇪🇸' },
   MX: { name: 'México', flag: '🇲🇽' },
-  CO: { name: 'Colombia', flag: '🇨🇴' },
-  BR: { name: 'Brasil', flag: '🇧🇷' },
 };
 
 const statuses: { status: LoanStatus; label: string; color: string }[] =
@@ -62,14 +77,14 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Overview of loan applications</p>
+          <h1 className="text-2xl font-bold text-gray-900">{DASH_TITLE}</h1>
+          <p className="text-gray-600">{DASH_SUBTITLE}</p>
         </div>
         <Link
           to="/loans/new"
           className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
-          + New Loan
+          {DASH_BTN_NEW}
         </Link>
       </div>
 
@@ -79,7 +94,7 @@ const Dashboard = () => {
         <Card className="bg-gradient-to-br from-primary-500 to-primary-600 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-primary-100 text-sm">Total Loans</p>
+              <p className="text-primary-100 text-sm">{DASH_STAT_TOTAL}</p>
               <p className="text-3xl font-bold mt-1">
                 {statistics
                   ? statistics.total_loans ?? statistics.total_count ?? 0
@@ -94,7 +109,7 @@ const Dashboard = () => {
         <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Avg Risk Score</p>
+              <p className="text-purple-100 text-sm">{DASH_STAT_RISK}</p>
               <p className="text-3xl font-bold mt-1">
                 {statistics?.average_risk_score != null
                   ? statistics.average_risk_score.toFixed(0)
@@ -109,7 +124,7 @@ const Dashboard = () => {
       {/* Status and Country Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* By Status */}
-        <Card title="Loans by Status">
+        <Card title={DASH_CHART_STATUS}>
           <div className="space-y-3">
             {statuses.map(({ status, label, color }) => {
               const count = statistics?.by_status?.[status] ?? 0;
@@ -139,7 +154,7 @@ const Dashboard = () => {
         </Card>
 
         {/* By Country */}
-        <Card title="Loans by Country">
+        <Card title={DASH_CHART_COUNTRY}>
           <div className="space-y-3">
             {Object.entries(countries).map(([code, { name, flag }]) => {
               const count = statistics?.by_country?.[code as CountryCode] ?? 0;
@@ -170,13 +185,13 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Loans */}
-      <Card title="Recent Loans" subtitle="Last 5 loan applications">
+      <Card title={DASH_RECENT_TITLE} subtitle={DASH_RECENT_SUBTITLE}>
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
           </div>
         ) : items.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No loans yet</p>
+          <p className="text-gray-500 text-center py-8">{DASH_EMPTY}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -186,16 +201,16 @@ const Dashboard = () => {
                     ID
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                    Country
+                    {TABLE_COL_COUNTRY}
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                    Name
+                    {TABLE_COL_NAME}
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                    Amount
+                    {TABLE_COL_AMOUNT}
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                    Status
+                    {TABLE_COL_STATUS}
                   </th>
                 </tr>
               </thead>
@@ -238,7 +253,7 @@ const Dashboard = () => {
             to="/loans"
             className="text-primary-600 hover:text-primary-700 text-sm font-medium"
           >
-            View all loans →
+            {DASH_VIEW_ALL}
           </Link>
         </div>
       </Card>

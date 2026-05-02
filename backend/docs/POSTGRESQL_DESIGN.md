@@ -69,7 +69,7 @@ One row per person screened.
 - Contact: `full_name`, optional `phone`, `email` (both unique).
 - Locale + privacy: `language`, `consent`, `consent_at`.
 - Screening data captured by the agent: `drivers_license: bool`, `area_id`, `zone_id`, `availability` (enum), `preferred_schedule` (enum), `experience_years` (0–50, CHECK), `platforms text[]`, `start_date`.
-- State: `status` (`new / in_progress / qualified / qualified_flagged / soft_disq / hard_disq / waitlist / abandoned`), `slot_uncertain` flag (set by the agent when validation retried twice).
+- State: `status` (`new / in_progress / hard_filter / sentiment_analysis / listwise / plackett_luce / qualified / qualified_flagged / soft_disq / hard_disq / waitlist / abandoned`), `slot_uncertain` flag (set by the agent when validation retried twice).
 
 > **License rationale:** the chat agent only asks *“do you have a driver’s license?”*. Storing the answer as a boolean makes the field cheap, regex-validatable, and free of biometric-document handling. ID document upload is an explicit non-feature for v1.
 

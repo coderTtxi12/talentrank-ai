@@ -7,6 +7,13 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchLoans, setFilters } from '@/store/slices/loansSlice';
 import { Card, Button } from '@/components/ui';
 import { LoanTable, LoanFilters, RealTimeIndicator } from '@/components/loans';
+import {
+  LIST_TITLE,
+  LIST_SUBTITLE,
+  LIST_BTN_NEW,
+  LIST_SHOWING,
+  LIST_FILTERS_ACTIVE,
+} from '@/constants/branding';
 
 const LoansList = () => {
   const dispatch = useAppDispatch();
@@ -29,10 +36,8 @@ const LoansList = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Loan Applications</h1>
-          <p className="text-gray-600">
-            Manage and review loan applications across all countries
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{LIST_TITLE}</h1>
+          <p className="text-gray-600">{LIST_SUBTITLE}</p>
         </div>
         <div className="flex items-center gap-4">
           <RealTimeIndicator />
@@ -40,7 +45,7 @@ const LoansList = () => {
             to="/loans/new"
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
-            + New Loan
+            {LIST_BTN_NEW}
           </Link>
         </div>
       </div>
@@ -51,10 +56,10 @@ const LoansList = () => {
       {/* Results info */}
       <div className="flex items-center justify-between text-sm text-gray-500">
         <span>
-          Showing {items.length} of {pagination.total} loans
+          {LIST_SHOWING(items.length, pagination.total)}
         </span>
         {(filters.country_code || filters.status || filters.requires_review !== null) && (
-          <span className="text-primary-600">Filters applied</span>
+          <span className="text-primary-600">{LIST_FILTERS_ACTIVE}</span>
         )}
       </div>
 
