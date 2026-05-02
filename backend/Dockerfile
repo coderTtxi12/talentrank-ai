@@ -19,6 +19,8 @@ RUN pip install -r /app/requirements.txt
 
 COPY app /app/app
 COPY prompts /app/prompts
+COPY docs /app/docs
+COPY scripts /app/scripts
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 COPY run.py /app/run.py

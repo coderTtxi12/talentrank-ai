@@ -10,7 +10,6 @@ Que hace la empresa
 - Opera ventanas de alta demanda en comida y cena.
 
 Donde opera Grupo Sazon
-
 Espana
 - Madrid
 - Barcelona
@@ -32,7 +31,6 @@ Espana
 - Pamplona
 - Donostia-San Sebastian
 - Salamanca
-
 Mexico
 - Ciudad de Mexico
 - Guadalajara

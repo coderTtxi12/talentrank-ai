@@ -81,6 +81,21 @@ def _search_company_info(query: str, k: Optional[int] = None) -> Dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("RAG search failed: %s", exc)
         return {"error": str(exc), "results": []}
+    if not hits:
+        logger.warning(
+            "RAG returned 0 hits (query=%r k=%s). Check KB is loaded into Chroma "
+            "(CHROMA_PERSIST_DIR=%s collection=%s).",
+            query[:200],
+            top_k,
+            settings.CHROMA_PERSIST_DIR,
+            settings.CHROMA_COLLECTION_KB,
+        )
+    else:
+        logger.info(
+            "RAG ok hits=%d query_preview=%s",
+            len(hits),
+            query[:120].replace("\n", " ") if query else "",
+        )
     return {"query": query, "k": top_k, "results": hits}
 
 
