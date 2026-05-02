@@ -34,7 +34,7 @@ import {
   DASH_RECENT_LOAD_MORE,
   TABLE_COL_COUNTRY,
   TABLE_COL_NAME,
-  TABLE_COL_AMOUNT,
+  TABLE_COL_DRIVERS_LICENSE,
   TABLE_COL_STATUS,
 } from '@/constants/branding';
 
@@ -66,13 +66,10 @@ const Dashboard = () => {
     dispatch(bootstrapDashboardRecent(undefined));
   }, [dispatch]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const formatDriversLicense = (value: boolean | null | undefined) => {
+    if (value === true) return 'Sí';
+    if (value === false) return 'No';
+    return '—';
   };
 
   return (
@@ -223,7 +220,7 @@ const Dashboard = () => {
                     {TABLE_COL_NAME}
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                    {TABLE_COL_AMOUNT}
+                    {TABLE_COL_DRIVERS_LICENSE}
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">
                     {TABLE_COL_STATUS}
@@ -253,7 +250,7 @@ const Dashboard = () => {
                       {candidateRow.full_name}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
-                      {formatCurrency(candidateRow.amount_requested)} {candidateRow.currency}
+                      {formatDriversLicense(candidateRow.drivers_license)}
                     </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={candidateRow.status} size="sm" />

@@ -94,6 +94,25 @@ export type CountryCode = 'ES' | 'MX';
 
 export type DocumentType = 'DNI' | 'CURP' | 'CC' | 'CPF';
 
+/** Valores API (`availability_enum`). */
+export type ScreeningAvailability = 'full_time' | 'part_time' | 'weekends';
+
+/** Valores API (`preferred_schedule_enum`). */
+export type ScreeningPreferredSchedule = 'morning' | 'afternoon' | 'evening' | 'flexible';
+
+export const SCREENING_AVAILABILITY_LABELS: Record<ScreeningAvailability, string> = {
+  full_time: 'Tiempo completo',
+  part_time: 'Tiempo parcial',
+  weekends: 'Fines de semana',
+};
+
+export const SCREENING_PREFERRED_SCHEDULE_LABELS: Record<ScreeningPreferredSchedule, string> = {
+  morning: 'Mañana',
+  afternoon: 'Tarde',
+  evening: 'Noche',
+  flexible: 'Flexible',
+};
+
 export interface BankingInfo {
   provider_name?: string;
   provider?: string;
@@ -119,6 +138,15 @@ export interface Candidate {
   document_type: DocumentType;
   document_number: string;
   full_name: string;
+  /** Carnet de conducir capturado en screening (`drivers_license` en DB). */
+  drivers_license: boolean | null;
+  city_zone: string | null;
+  availability: ScreeningAvailability | string | null;
+  preferred_schedule: ScreeningPreferredSchedule | string | null;
+  experience_years: number | null;
+  platforms: string[] | null;
+  /** ISO date (`YYYY-MM-DD`). */
+  start_date: string | null;
   amount_requested: number;
   currency: string;
   monthly_income: number;

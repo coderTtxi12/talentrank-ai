@@ -10,7 +10,7 @@ from typing import Any, Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.database import Candidate, CandidateStatus, Language
+from app.models.database import Availability, Candidate, CandidateStatus, Language, PreferredSchedule
 from app.schemas.candidate_public import CandidatePublic, CandidatesCursorPage
 
 
@@ -40,6 +40,21 @@ def candidate_to_public(row: Candidate) -> CandidatePublic:
         document_type="CURP",
         document_number=doc_number,
         full_name=full_name,
+        drivers_license=row.drivers_license,
+        city_zone=row.city_zone,
+        availability=(
+            row.availability.value
+            if isinstance(row.availability, Availability)
+            else (str(row.availability) if row.availability is not None else None)
+        ),
+        preferred_schedule=(
+            row.preferred_schedule.value
+            if isinstance(row.preferred_schedule, PreferredSchedule)
+            else (str(row.preferred_schedule) if row.preferred_schedule is not None else None)
+        ),
+        experience_years=row.experience_years,
+        platforms=list(row.platforms) if row.platforms else None,
+        start_date=row.start_date,
         amount_requested=0.0,
         currency=_currency_for_country(country),
         monthly_income=0.0,

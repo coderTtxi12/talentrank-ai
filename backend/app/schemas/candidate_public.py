@@ -6,8 +6,8 @@ where the screening schema does not yet duplicate legacy loan-style columns.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Optional
+from datetime import date, datetime
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,13 @@ class CandidatePublic(BaseModel):
     document_type: Literal["DNI", "CURP", "CC", "CPF"] = "CURP"
     document_number: str = ""
     full_name: str = ""
+    drivers_license: Optional[bool] = None
+    city_zone: Optional[str] = None
+    availability: Optional[str] = None
+    preferred_schedule: Optional[str] = None
+    experience_years: Optional[int] = None
+    platforms: Optional[List[str]] = None
+    start_date: Optional[date] = None
     amount_requested: float = 0.0
     currency: str = "USD"
     monthly_income: float = 0.0
