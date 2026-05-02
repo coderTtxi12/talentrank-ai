@@ -19,7 +19,6 @@ import asyncio
 from typing import Any, Dict
 
 from app.core.logging import get_logger
-from app.realtime import broadcast as realtime_broadcast
 from app.services import history_repository, llm_client, screening_state
 
 logger = get_logger(__name__)
@@ -69,14 +68,6 @@ async def _persist_state_updates(
                 session_id,
                 result,
             )
-        elif label == "postgres" and isinstance(result, dict):
-            bc = result.get("status_broadcast")
-            if isinstance(bc, dict) and bc.get("candidate_id"):
-                await realtime_broadcast.emit_candidate_status_changed(
-                    str(bc["candidate_id"]),
-                    old_status=str(bc["old_status"]),
-                    new_status=str(bc["new_status"]),
-                )
 
 
 async def handle_turn(session_id: str, user_message: str) -> Dict[str, Any]:

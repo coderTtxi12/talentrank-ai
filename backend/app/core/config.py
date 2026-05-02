@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,12 +28,11 @@ class Settings(BaseSettings):
     HOST: str = Field(default="0.0.0.0")
     PORT: int = Field(default=8000)
 
-    # Browser clients (Next.js dev / prod origin). Comma-separated in .env.
+    # Browser clients (Vite/dev). Comma-separated in .env.
     CORS_ORIGINS: List[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-            # Vite/Chrome pueden usar [::1]; Socket.IO rechaza Origin con 400 si no está permitido.
             "http://[::1]:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
@@ -42,35 +41,12 @@ class Settings(BaseSettings):
         description="Allowed origins for browser fetch from the frontend.",
     )
 
-    # Socket.IO (engine.io) valida Origin aparte del CORS de Starlette/FastAPI.
-    SOCKETIO_CORS_ORIGINS: Optional[str] = Field(
-        default=None,
-        description=(
-            "Lista separada por comas de orígenes para Socket.IO; '*' permitido. "
-            "Vacío en development → '*'; si no → se usan los mismos que CORS_ORIGINS."
-        ),
-    )
-
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [s.strip() for s in value.split(",") if s.strip()]
         return value
-
-    def socketio_cors_allowed_origins(self) -> Union[List[str], str]:
-        raw = (
-            self.SOCKETIO_CORS_ORIGINS.strip()
-            if isinstance(self.SOCKETIO_CORS_ORIGINS, str)
-            else ""
-        )
-        if raw:
-            if raw == "*":
-                return "*"
-            return [s.strip() for s in raw.split(",") if s.strip()]
-        if self.ENVIRONMENT.lower() in ("development", "dev", "local"):
-            return "*"
-        return list(self.CORS_ORIGINS)
 
     # PostgreSQL
     DATABASE_URL: str = Field(

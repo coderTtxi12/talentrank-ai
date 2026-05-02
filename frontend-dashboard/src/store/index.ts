@@ -4,7 +4,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import candidatesReducer from './slices/candidatesSlice';
 import uiReducer from './slices/uiSlice';
-import { socketMiddleware } from './middleware/socketMiddleware';
 
 export const store = configureStore({
   reducer: {
@@ -16,7 +15,7 @@ export const store = configureStore({
       serializableCheck: {
         ignoredActions: ['persist/PERSIST'],
       },
-    }).concat(socketMiddleware),
+    }),
   devTools: import.meta.env.DEV,
 });
 

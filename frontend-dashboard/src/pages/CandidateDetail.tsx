@@ -11,13 +11,7 @@ import {
   clearSelectedCandidate,
 } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
-import {
-  CandidateInfo,
-  StatusTimeline,
-  StatusChangeModal,
-  RealTimeIndicator,
-} from '@/components/candidates';
-import { subscribeToCandidateRoom, unsubscribeFromCandidateRoom } from '@/services/socket';
+import { CandidateInfo, StatusTimeline, StatusChangeModal } from '@/components/candidates';
 import type { CandidateStatus, CandidateStatusHistory } from '@/types/candidate';
 import {
   DETAIL_TITLE,
@@ -45,14 +39,10 @@ const CandidateDetail = () => {
   useEffect(() => {
     if (id) {
       dispatch(fetchCandidateById(id));
-      subscribeToCandidateRoom(id);
     }
 
     return () => {
       dispatch(clearSelectedCandidate());
-      if (id) {
-        unsubscribeFromCandidateRoom(id);
-      }
     };
   }, [dispatch, id]);
 
@@ -133,7 +123,6 @@ const CandidateDetail = () => {
           <p className="text-gray-600 font-mono text-sm">{selectedCandidate.id}</p>
         </div>
         <div className="flex items-center gap-4">
-          <RealTimeIndicator />
           <Button onClick={() => setShowStatusModal(true)}>
             {DETAIL_BTN_CHANGE_STATUS}
           </Button>

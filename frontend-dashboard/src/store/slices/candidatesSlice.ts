@@ -9,11 +9,9 @@ import type {
   CandidatesState,
   CandidateFilters,
   CandidateStatistics,
-  CandidateStatus,
   CandidatesCursorResponse,
 } from '@/types/candidate';
 import { api } from '@/services/api';
-import { getSocket } from '@/services/socket';
 import {
   ERR_FETCH_LIST,
   ERR_FETCH_ONE,
@@ -23,7 +21,8 @@ import {
   ERR_STATS,
 } from '@/constants/branding';
 
-const DASHBOARD_RECENT_WS_LIMIT = 12;
+/** Tamaño de página para la tabla «recientes» en la home (`GET /candidates`). */
+const DASHBOARD_RECENT_PAGE_SIZE = 12;
 
 /** Petición cancelada o deduplicada (StrictMode, dispatch repetido). */
 const THUNK_SUPERSEDED = '__thunkSuperseded__';
@@ -34,7 +33,7 @@ let bootstrapRecentAbortController: AbortController | null = null;
 let statisticsInFlightKey: string | null = null;
 let statisticsAbortController: AbortController | null = null;
 
-const BOOTSTRAP_RECENT_QUERY_KEY = `recent|${DASHBOARD_RECENT_WS_LIMIT}`;
+const BOOTSTRAP_RECENT_QUERY_KEY = `recent|${DASHBOARD_RECENT_PAGE_SIZE}`;
 const STATISTICS_FETCH_KEY = 'statistics';
 
 let listFetchInFlightKey: string | null = null;
@@ -75,10 +74,10 @@ const initialState: CandidatesState = {
   },
   recentNextCursor: null,
   recentHydrated: false,
-  recentPageSize: DASHBOARD_RECENT_WS_LIMIT,
+  recentPageSize: DASHBOARD_RECENT_PAGE_SIZE,
 };
 
-/** Si WebSocket no llega a tiempo, primera página vía HTTP (misma forma que el snapshot WS). */
+/** Primera página de candidatos recientes vía HTTP. */
 export const bootstrapDashboardRecent = createAsyncThunk(
   'candidates/bootstrapRecent',
   async (_, { rejectWithValue }) => {
@@ -86,7 +85,7 @@ export const bootstrapDashboardRecent = createAsyncThunk(
     const signal = bootstrapRecentAbortController!.signal;
     try {
       const params = new URLSearchParams();
-      params.append('limit', String(DASHBOARD_RECENT_WS_LIMIT));
+      params.append('limit', String(DASHBOARD_RECENT_PAGE_SIZE));
       const response = await api.get<CandidatesCursorResponse>(
         `/candidates?${params.toString()}`,
         { signal }
@@ -266,20 +265,33 @@ export const fetchCandidateHistory = createAsyncThunk(
   }
 );
 
-/** Siguiente ventana de "recientes" vía Socket (`subscribe_recent` con cursor). */
-export const fetchMoreDashboardRecentWs = createAsyncThunk(
-  'candidates/fetchMoreRecentWs',
-  async (_, { getState }) => {
+/** Página siguiente de «recientes» vía GET `/candidates` con `cursor`. */
+export const fetchMoreDashboardRecent = createAsyncThunk(
+  'candidates/fetchMoreRecent',
+  async (_, { getState, rejectWithValue }) => {
     const state = getState() as { candidates: CandidatesState };
     const { recentNextCursor, recentPageSize } = state.candidates;
-    const socket = getSocket();
-    if (!recentNextCursor || !socket?.connected) {
-      return;
+    if (!recentNextCursor) {
+      return rejectWithValue(THUNK_SUPERSEDED);
     }
-    socket.emit('subscribe_recent', {
-      limit: recentPageSize,
-      cursor: recentNextCursor,
-    });
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', String(recentPageSize));
+      params.append('cursor', recentNextCursor);
+      const response = await api.get<CandidatesCursorResponse>(
+        `/candidates?${params.toString()}`
+      );
+      return response.data;
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        ERR_FETCH_LIST;
+      return rejectWithValue(message);
+    }
+  },
+  {
+    condition: (_, { getState }) =>
+      !!(getState() as { candidates: CandidatesState }).candidates.recentNextCursor,
   }
 );
 
@@ -333,91 +345,6 @@ const candidatesSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
-    },
-    candidateUpdated: (state, action: PayloadAction<Partial<Candidate> & { id: string }>) => {
-      const index = state.items.findIndex((l) => l.id === action.payload.id);
-      if (index !== -1) {
-        state.items[index] = { ...state.items[index], ...action.payload };
-      }
-      if (state.selectedCandidate?.id === action.payload.id) {
-        state.selectedCandidate = { ...state.selectedCandidate, ...action.payload };
-      }
-    },
-    candidateCreated: (state, action: PayloadAction<Candidate>) => {
-      const incoming = action.payload;
-      const exists = state.items.some((l) => l.id === incoming.id);
-      if (!exists) {
-        state.items.unshift(incoming);
-        state.pagination.total += 1;
-      }
-      state.dashboardRecent = [
-        incoming,
-        ...state.dashboardRecent.filter((c) => c.id !== incoming.id),
-      ];
-    },
-    statusChanged: (
-      state,
-      action: PayloadAction<{
-        loan_id?: string;
-        candidate_id?: string;
-        old_status: string;
-        new_status: string;
-      }>
-    ) => {
-      const id = action.payload.candidate_id ?? action.payload.loan_id;
-      if (!id) return;
-      const { new_status } = action.payload;
-      const index = state.items.findIndex((l) => l.id === id);
-      if (index !== -1) {
-        state.items[index].status = new_status as CandidateStatus;
-      }
-      if (state.selectedCandidate?.id === id) {
-        state.selectedCandidate.status = new_status as CandidateStatus;
-      }
-      const ridx = state.dashboardRecent.findIndex((l) => l.id === id);
-      if (ridx !== -1) {
-        state.dashboardRecent[ridx].status = new_status as CandidateStatus;
-      }
-    },
-    applyWsCandidatesSnapshot: (
-      state,
-      action: PayloadAction<CandidatesCursorResponse>
-    ) => {
-      const p = action.payload;
-      state.items = p.items;
-      const total = p.total ?? state.pagination.total;
-      const limit = p.limit;
-      state.pagination = {
-        total,
-        page: state.filters.page,
-        page_size: limit,
-        total_pages:
-          total > 0 && limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1,
-        next_cursor: p.next_cursor ?? null,
-      };
-    },
-    applyWsRecentCandidates: (
-      state,
-      action: PayloadAction<{
-        items: Candidate[];
-        next_cursor: string | null;
-        append: boolean;
-      }>
-    ) => {
-      const { items, next_cursor, append } = action.payload;
-      if (append && state.dashboardRecent.length > 0) {
-        const seen = new Set(state.dashboardRecent.map((c) => c.id));
-        for (const c of items) {
-          if (!seen.has(c.id)) {
-            seen.add(c.id);
-            state.dashboardRecent.push(c);
-          }
-        }
-      } else {
-        state.dashboardRecent = items;
-      }
-      state.recentNextCursor = next_cursor ?? null;
-      state.recentHydrated = true;
     },
   },
   extraReducers: (builder) => {
@@ -539,20 +466,29 @@ const candidatesSlice = createSlice({
         }
         state.statisticsLoading = false;
         state.error = action.payload as string;
+      })
+
+      .addCase(fetchMoreDashboardRecent.fulfilled, (state, action) => {
+        const p = action.payload;
+        const seen = new Set(state.dashboardRecent.map((c) => c.id));
+        for (const c of p.items) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id);
+            state.dashboardRecent.push(c);
+          }
+        }
+        state.recentNextCursor = p.next_cursor ?? null;
+      })
+      .addCase(fetchMoreDashboardRecent.rejected, (state, action) => {
+        if (action.payload === THUNK_SUPERSEDED) {
+          return;
+        }
+        state.error = action.payload as string;
       });
   },
 });
 
-export const {
-  setFilters,
-  clearFilters,
-  clearSelectedCandidate,
-  clearError,
-  candidateUpdated,
-  candidateCreated,
-  statusChanged,
-  applyWsCandidatesSnapshot,
-  applyWsRecentCandidates,
-} = candidatesSlice.actions;
+export const { setFilters, clearFilters, clearSelectedCandidate, clearError } =
+  candidatesSlice.actions;
 
 export default candidatesSlice.reducer;

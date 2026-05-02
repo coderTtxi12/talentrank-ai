@@ -31,7 +31,7 @@ export const DASH_RECENT_TITLE = 'Candidatos recientes';
 export const DASH_RECENT_SUBTITLE = 'Últimos registros en el funnel';
 export const DASH_EMPTY = 'Aún no hay candidatos';
 export const DASH_VIEW_ALL = 'Ver todos los candidatos →';
-export const DASH_RECENT_LOAD_MORE = 'Cargar más (WebSocket)';
+export const DASH_RECENT_LOAD_MORE = 'Cargar más';
 export const SIDEBAR_CANDIDATES_TOTAL = (total: number) =>
   `${total.toLocaleString('es-ES')} en total`;
 export const LIST_TITLE = 'Candidatos';

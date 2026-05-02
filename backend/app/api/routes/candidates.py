@@ -15,7 +15,6 @@ from app.models.database import Candidate, CandidateStatus, Language
 from app.schemas.candidate_create import CandidateCreateRequest
 from app.schemas.candidate_public import CandidatePublic, CandidatesCursorPage
 from app.schemas.candidate_status import PatchCandidateStatusRequest
-from app.realtime import broadcast
 from app.services.candidate_list import (
     candidate_to_public,
     compute_statistics,
@@ -71,7 +70,7 @@ def recent_candidates(
     status_code=status.HTTP_201_CREATED,
     summary="Register a candidate (dashboard)",
 )
-async def create_candidate(body: CandidateCreateRequest, db: Session = Depends(get_db)) -> CandidatePublic:
+def create_candidate(body: CandidateCreateRequest, db: Session = Depends(get_db)) -> CandidatePublic:
     lang = Language.ES_ES if body.country_code == "ES" else Language.ES_MX
     row = Candidate(
         full_name=body.full_name.strip(),
@@ -90,7 +89,6 @@ async def create_candidate(body: CandidateCreateRequest, db: Session = Depends(g
     db.refresh(row)
     logger.info("candidate_created id=%s", row.id)
     pub = candidate_to_public(row)
-    await broadcast.emit_candidate_created(pub.model_dump(mode="json"))
     return pub
 
 
@@ -119,7 +117,7 @@ def get_candidate(candidate_id: str, db: Session = Depends(get_db)) -> Candidate
     response_model=CandidatePublic,
     summary="Update candidate funnel status",
 )
-async def patch_candidate_status(
+def patch_candidate_status(
     candidate_id: str,
     body: PatchCandidateStatusRequest,
     db: Session = Depends(get_db),
@@ -133,7 +131,6 @@ async def patch_candidate_status(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
 
-    old_status = row.status.value if isinstance(row.status, CandidateStatus) else str(row.status)
     try:
         row.status = CandidateStatus(body.status)
     except ValueError as exc:
@@ -151,11 +148,6 @@ async def patch_candidate_status(
         body.status,
     )
     pub = candidate_to_public(row)
-    await broadcast.emit_candidate_status_changed(
-        str(uid),
-        old_status=old_status,
-        new_status=body.status,
-    )
     return pub
 
 

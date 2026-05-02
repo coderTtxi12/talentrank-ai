@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchStatistics,
-  fetchMoreDashboardRecentWs,
+  fetchMoreDashboardRecent,
   bootstrapDashboardRecent,
 } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
@@ -198,7 +198,7 @@ const Dashboard = () => {
         title={DASH_RECENT_TITLE}
         subtitle={
           recentHydrated
-            ? `${DASH_RECENT_SUBTITLE} · ${dashboardRecent.length} mostrados en esta vista${recentNextCursor ? ' · hay más vía WebSocket' : ''}`
+            ? `${DASH_RECENT_SUBTITLE} · ${dashboardRecent.length} en esta vista${recentNextCursor ? ' · puedes cargar más' : ''}`
             : DASH_RECENT_SUBTITLE
         }
       >
@@ -270,7 +270,7 @@ const Dashboard = () => {
               type="button"
               variant="secondary"
               size="sm"
-              onClick={() => void dispatch(fetchMoreDashboardRecentWs())}
+              onClick={() => void dispatch(fetchMoreDashboardRecent())}
             >
               {DASH_RECENT_LOAD_MORE}
             </Button>

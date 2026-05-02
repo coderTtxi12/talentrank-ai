@@ -1,4 +1,4 @@
-"""Pydantic schemas for candidate listings (API + WebSocket payloads).
+"""Pydantic schemas for candidate listings (dashboard / API responses).
 
 Aligned with the recruiter dashboard shape; ORM fields are mapped with defaults
 where the screening schema does not yet duplicate legacy loan-style columns.
@@ -47,26 +47,4 @@ class CandidatesCursorPage(BaseModel):
     total: Optional[int] = Field(
         default=None,
         description="Row count for current filters (only when include_total was requested).",
-    )
-
-
-class CandidatesSubscribePayload(BaseModel):
-    """Client → server: initial / refresh subscription for live list."""
-
-    cursor: Optional[str] = None
-    limit: int = Field(default=20, ge=1, le=100)
-    status_filter: Optional[str] = Field(default=None, validation_alias="status")
-    country_code: Optional[Literal["ES", "MX"]] = None
-    include_total: bool = False
-
-    model_config = {"populate_by_name": True}
-
-
-class CandidatesRecentPayload(BaseModel):
-    """Client → server: cursor page for dashboard home (newest-first, same ordering as listing)."""
-
-    limit: int = Field(default=5, ge=1, le=50)
-    cursor: Optional[str] = Field(
-        default=None,
-        description="Opaque cursor; omit or null for the first window.",
     )

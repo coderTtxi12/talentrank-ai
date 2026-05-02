@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchCandidates, setFilters } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
-import { CandidateTable, CandidateFilters, RealTimeIndicator } from '@/components/candidates';
+import { CandidateTable, CandidateFilters } from '@/components/candidates';
 import {
   LIST_TITLE,
   LIST_SUBTITLE,
@@ -47,15 +47,12 @@ const CandidatesList = () => {
           <h1 className="text-2xl font-bold text-gray-900">{LIST_TITLE}</h1>
           <p className="text-gray-600">{LIST_SUBTITLE}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <RealTimeIndicator />
-          <Link
-            to="/candidates/new"
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            {LIST_BTN_NEW}
-          </Link>
-        </div>
+        <Link
+          to="/candidates/new"
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          {LIST_BTN_NEW}
+        </Link>
       </div>
 
       <CandidateFilters />

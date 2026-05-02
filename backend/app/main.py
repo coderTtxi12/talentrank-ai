@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router_v1
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.realtime.socket_server import build_combined_asgi
 
 
 def create_fastapi_application() -> FastAPI:
@@ -43,4 +42,4 @@ def create_fastapi_application() -> FastAPI:
     return fastapi_app
 
 
-app = build_combined_asgi(create_fastapi_application())
+app = create_fastapi_application()

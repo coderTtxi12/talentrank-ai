@@ -34,10 +34,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
       },
-      '/socket.io': {
-        target: process.env.VITE_SOCKET_PROXY_TARGET || 'http://localhost:8000',
-        ws: true,
-      },
     },
   },
   build: {
@@ -48,7 +44,6 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           redux: ['@reduxjs/toolkit', 'react-redux'],
-          socket: ['socket.io-client'],
         },
       },
     },

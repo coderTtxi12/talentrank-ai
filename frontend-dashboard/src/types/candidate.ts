@@ -205,7 +205,7 @@ export interface CandidateStatistics {
 
 export interface CandidatesState {
   items: Candidate[];
-  /** Muestra de la home (evento WebSocket `recent_candidates_snapshot` o GET /recent). */
+  /** Vista previa reciente en la home (`GET /candidates` con paginación por cursor). */
   dashboardRecent: Candidate[];
   selectedCandidate: Candidate | null;
   statistics: CandidateStatistics | null;
@@ -214,9 +214,9 @@ export interface CandidatesState {
   error: string | null;
   filters: CandidateFilters;
   pagination: CandidatePagination;
-  /** Paginación de la tarjeta "recientes" (Socket.IO ``subscribe_recent``). */
+  /** Siguiente cursor para «cargar más» recientes sobre la lista principal. */
   recentNextCursor: string | null;
-  /** Primera foto de candidatos recientes recibida por WS (lista vacía incluida). */
+  /** Ya se cargó la primera ventana HTTP de recientes (vacía válida). */
   recentHydrated: boolean;
   recentPageSize: number;
 }
