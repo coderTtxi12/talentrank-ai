@@ -2,16 +2,24 @@
 
 Listens on the Postgres `candidate_completed` channel (populated by the trigger
 defined in migration `0002_candidate_completed_notify`). Whenever a candidate
-flips `is_completed` to true, phase 1 applies hard filters (ORM), then future
-sentiment logic can run here.
+flips `is_completed` to true:
+
+    1. Phase 1 - hard filters (driver's license, coverage city) -> may set
+       `candidates.status = HARD_DISQ`.
+    2. Phase 2 - **only when phase 1 passes**: run the sentiment-analysis
+       LLM agent over the full conversation transcript and upsert the result
+       into `sentiment_results`. Hard-disqualified candidates skip this step
+       so we don't burn LLM tokens on rejected applications.
 
 Design notes:
-    * Uses `psycopg.AsyncConnection` directly for LISTEN/NOTIFY — needs a
+    * Uses `psycopg.AsyncConnection` directly for LISTEN/NOTIFY -- needs a
       dedicated connection in autocommit mode and an idle wait loop.
-    * Reads and updates screening rows via sync SQLAlchemy `SessionLocal`
-      inside `asyncio.to_thread` so ORM stays single-threaded per operation.
-    * On disconnect / transient error the loop reconnects with exponential
-      backoff capped at `_MAX_BACKOFF_SECONDS`.
+    * Reads/updates via sync SQLAlchemy `SessionLocal` inside
+      `asyncio.to_thread` so ORM stays single-threaded per operation.
+    * Phase 2 is idempotent: `sentiment_results.conversation_id` is UNIQUE and
+      we use INSERT ... ON CONFLICT DO UPDATE.
+    * On disconnect / transient error the LISTEN loop reconnects with
+      exponential backoff capped at `_MAX_BACKOFF_SECONDS`.
 
 Run locally:
     python -m app.workers.sentiment_analysis.worker
@@ -22,13 +30,24 @@ from __future__ import annotations
 import asyncio
 import signal
 import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
 import psycopg
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.logging import configure_logging, get_logger
-from app.models.database import Candidate, CandidateStatus
+from app.models.database import (
+    Candidate,
+    CandidateStatus,
+    Conversation,
+    Message,
+    Sentiment,
+    SentimentResult,
+)
+from app.workers.sentiment_analysis.agent import analyze_conversation
 from app.workers.sentiment_analysis.grupo_sazon_coverage_cities import (
     city_zone_in_coverage,
 )
@@ -55,8 +74,19 @@ def _psycopg_dsn() -> str:
     return url
 
 
-def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> None:
-    """Si el screening está completo, aplicar descalificación dura por licencia o ciudad."""
+# ---------------------------------------------------------------------------
+# Phase 1: hard filters
+# ---------------------------------------------------------------------------
+
+
+def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> bool:
+    """Apply hard filters.
+
+    Returns True only when the candidate exists, has finished screening AND
+    passed every hard requirement. Returning False signals the caller to skip
+    downstream phases (sentiment analysis, ranking, ...). Hard-disqualified
+    candidates also return False.
+    """
 
     with SessionLocal() as db:
         candidate = db.get(Candidate, candidate_id)
@@ -66,7 +96,7 @@ def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> None:
                 WORKER_NAME,
                 candidate_id,
             )
-            return
+            return False
 
         if not candidate.is_completed:
             logger.warning(
@@ -74,7 +104,7 @@ def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> None:
                 WORKER_NAME,
                 candidate_id,
             )
-            return
+            return False
 
         reasons: list[str] = []
 
@@ -88,17 +118,159 @@ def _phase1_hard_filters_sync(candidate_id: uuid.UUID) -> None:
             candidate.status = CandidateStatus.HARD_DISQ
             db.commit()
             logger.info(
-                "[%s] phase1: HARD_DISQ candidate_id=%s reasons=%s",
+                "[%s] phase1: HARD_DISQ candidate_id=%s reasons=%s — phase2 omitida",
                 WORKER_NAME,
                 candidate_id,
                 reasons,
             )
-        else:
-            logger.info(
-                "[%s] phase1: filtros duros OK candidate_id=%s",
+            return False
+
+        logger.info(
+            "[%s] phase1: filtros duros OK candidate_id=%s",
+            WORKER_NAME,
+            candidate_id,
+        )
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: sentiment analysis
+# ---------------------------------------------------------------------------
+
+
+def _load_latest_conversation_sync(
+    candidate_id: uuid.UUID,
+) -> Optional[Tuple[uuid.UUID, List[Dict[str, Any]]]]:
+    """Return `(conversation_id, ordered_messages)` for the candidate.
+
+    Picks the most recent conversation linked to the candidate. Messages are
+    returned in chronological order with role + content.
+    """
+
+    with SessionLocal() as db:
+        conv = db.scalar(
+            select(Conversation)
+            .where(Conversation.candidate_id == candidate_id)
+            .order_by(Conversation.last_seen_at.desc())
+            .limit(1)
+        )
+        if conv is None:
+            logger.warning(
+                "[%s] phase2: candidate sin conversation candidate_id=%s",
                 WORKER_NAME,
                 candidate_id,
             )
+            return None
+
+        rows = db.execute(
+            select(Message.role, Message.content)
+            .where(Message.conversation_id == conv.id)
+            .order_by(Message.created_at.asc(), Message.id.asc())
+        ).all()
+
+        messages: List[Dict[str, Any]] = [
+            {"role": r.value if hasattr(r, "value") else str(r), "content": c}
+            for r, c in rows
+        ]
+        return conv.id, messages
+
+
+def _persist_sentiment_sync(
+    *,
+    conversation_id: uuid.UUID,
+    envelope: Dict[str, Any],
+) -> None:
+    """Upsert a row in `sentiment_results` keyed by conversation_id."""
+
+    sentiment_label = str(envelope.get("sentiment", "neutral"))
+    try:
+        sentiment_enum = Sentiment(sentiment_label)
+    except ValueError:
+        logger.warning(
+            "[%s] phase2: sentiment label inválido %r, usando neutral",
+            WORKER_NAME,
+            sentiment_label,
+        )
+        sentiment_enum = Sentiment.NEUTRAL
+
+    confidence = float(envelope.get("confidence", 0.0) or 0.0)
+    confidence = max(0.0, min(1.0, confidence))
+    signals = envelope.get("signals") or {}
+    if not isinstance(signals, dict):
+        signals = {"raw": signals}
+    if envelope.get("reasoning"):
+        signals = {**signals, "reasoning": envelope["reasoning"]}
+
+    model_version = str(envelope.get("model_version") or settings.OPENAI_MODEL or "unknown")
+
+    stmt = pg_insert(SentimentResult).values(
+        conversation_id=conversation_id,
+        sentiment=sentiment_enum.value,
+        confidence=confidence,
+        signals=signals,
+        model_version=model_version,
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[SentimentResult.conversation_id],
+        set_={
+            "sentiment": stmt.excluded.sentiment,
+            "confidence": stmt.excluded.confidence,
+            "signals": stmt.excluded.signals,
+            "model_version": stmt.excluded.model_version,
+        },
+    )
+
+    with SessionLocal() as db:
+        db.execute(stmt)
+        db.commit()
+
+
+async def _phase2_sentiment_analysis(candidate_id: uuid.UUID) -> None:
+    """Run the sentiment LLM agent and persist the result."""
+
+    loaded = await asyncio.to_thread(_load_latest_conversation_sync, candidate_id)
+    if loaded is None:
+        return
+    conversation_id, messages = loaded
+    if not messages:
+        logger.warning(
+            "[%s] phase2: conversation sin mensajes candidate_id=%s conv=%s",
+            WORKER_NAME,
+            candidate_id,
+            conversation_id,
+        )
+        return
+
+    logger.info(
+        "[%s] phase2: lanzando agente candidate_id=%s conv=%s msgs=%d",
+        WORKER_NAME,
+        candidate_id,
+        conversation_id,
+        len(messages),
+    )
+    envelope = await analyze_conversation(
+        candidate_id=str(candidate_id),
+        conversation_id=str(conversation_id),
+        messages=messages,
+    )
+    await asyncio.to_thread(
+        _persist_sentiment_sync,
+        conversation_id=conversation_id,
+        envelope=envelope,
+    )
+    logger.info(
+        "[%s] phase2: sentiment guardado candidate_id=%s conv=%s sentiment=%s confidence=%.2f",
+        WORKER_NAME,
+        candidate_id,
+        conversation_id,
+        envelope.get("sentiment"),
+        float(envelope.get("confidence", 0.0) or 0.0),
+    )
+
+
+# ---------------------------------------------------------------------------
+# NOTIFY plumbing
+# ---------------------------------------------------------------------------
 
 
 async def _handle_notification(payload: str) -> None:
@@ -115,7 +287,23 @@ async def _handle_notification(payload: str) -> None:
         logger.warning("[%s] payload UUID inválido: %r", WORKER_NAME, raw)
         return
 
-    await asyncio.to_thread(_phase1_hard_filters_sync, candidate_id)
+    passed_hard_filters = await asyncio.to_thread(
+        _phase1_hard_filters_sync, candidate_id
+    )
+    if not passed_hard_filters:
+        # Candidato no encontrado, sin screening completo, o quedó HARD_DISQ:
+        # no gastamos LLM en sentiment analysis.
+        return
+
+    try:
+        await _phase2_sentiment_analysis(candidate_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "[%s] phase2 falló candidate_id=%s: %s",
+            WORKER_NAME,
+            candidate_id,
+            exc,
+        )
 
 
 async def _listen_loop(stop_event: asyncio.Event) -> None:

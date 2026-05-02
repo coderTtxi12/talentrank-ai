@@ -86,7 +86,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      # OPENAI_API_KEY, OPENAI_MODEL, LANGSMITH_*, OPENAI_TIMEOUT_SECONDS, ...
+      - ./backend/.env
     environment:
+      # Sobrescribe DATABASE_URL del .env (localhost) por la red interna compose.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-development}
