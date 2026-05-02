@@ -2,15 +2,53 @@
  * Loan types.
  */
 
-export type LoanStatus =
-  | 'PENDING'
-  | 'VALIDATING'
-  | 'IN_REVIEW'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'DISBURSED'
-  | 'CANCELLED'
-  | 'COMPLETED';
+/** Aligned with backend `CandidateStatus` (see `backend/app/models/database.py`). */
+export type CandidateStatus =
+  | 'new'
+  | 'in_progress'
+  | 'qualified'
+  | 'qualified_flagged'
+  | 'soft_disq'
+  | 'hard_disq'
+  | 'waitlist'
+  | 'abandoned';
+
+/** Legacy name — mismo tipo que estados de candidato. */
+export type LoanStatus = CandidateStatus;
+
+export const CANDIDATE_STATUS_ORDER: CandidateStatus[] = [
+  'new',
+  'in_progress',
+  'qualified',
+  'qualified_flagged',
+  'soft_disq',
+  'hard_disq',
+  'waitlist',
+  'abandoned',
+];
+
+export const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
+  new: 'Nuevo',
+  in_progress: 'En progreso',
+  qualified: 'Calificado',
+  qualified_flagged: 'Calificado (marcado)',
+  soft_disq: 'Descalificación suave',
+  hard_disq: 'Descalificación dura',
+  waitlist: 'Lista de espera',
+  abandoned: 'Abandonado',
+};
+
+/** Color de barra / punto en gráficos del dashboard */
+export const CANDIDATE_STATUS_CHART_COLORS: Record<CandidateStatus, string> = {
+  new: 'bg-yellow-500',
+  in_progress: 'bg-blue-400',
+  qualified: 'bg-green-500',
+  qualified_flagged: 'bg-purple-500',
+  soft_disq: 'bg-orange-500',
+  hard_disq: 'bg-red-500',
+  waitlist: 'bg-cyan-500',
+  abandoned: 'bg-gray-400',
+};
 
 export type CountryCode = 'ES' | 'MX' | 'CO' | 'BR';
 

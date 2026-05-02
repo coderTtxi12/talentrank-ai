@@ -5,7 +5,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setFilters, fetchLoans } from '@/store/slices/loansSlice';
 import clsx from 'clsx';
-import type { LoanStatus, CountryCode } from '@/types/loan';
+import type { LoanStatus, CountryCode, CandidateStatus } from '@/types/loan';
+import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
 
 interface NavItem {
   name: string;
@@ -65,16 +66,36 @@ const countries = [
   { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
 ];
 
-const statuses: { value: LoanStatus; label: string; color: string; dotColor: string }[] = [
-  { value: 'PENDING', label: 'Pending', color: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
-  { value: 'VALIDATING', label: 'Validating', color: 'bg-blue-100 text-blue-800', dotColor: 'bg-blue-400' },
-  { value: 'IN_REVIEW', label: 'In Review', color: 'bg-purple-100 text-purple-800', dotColor: 'bg-purple-500' },
-  { value: 'APPROVED', label: 'Approved', color: 'bg-green-100 text-green-800', dotColor: 'bg-green-500' },
-  { value: 'REJECTED', label: 'Rejected', color: 'bg-red-100 text-red-800', dotColor: 'bg-red-500' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-gray-100 text-gray-800', dotColor: 'bg-gray-400' },
-  { value: 'DISBURSED', label: 'Disbursed', color: 'bg-teal-100 text-teal-800', dotColor: 'bg-teal-500' },
-  { value: 'COMPLETED', label: 'Completed', color: 'bg-emerald-100 text-emerald-800', dotColor: 'bg-emerald-600' },
-];
+const SIDEBAR_STATUS_STYLE: Record<
+  CandidateStatus,
+  { color: string; dotColor: string }
+> = {
+  new: { color: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
+  in_progress: { color: 'bg-blue-100 text-blue-800', dotColor: 'bg-blue-400' },
+  qualified: { color: 'bg-green-100 text-green-800', dotColor: 'bg-green-500' },
+  qualified_flagged: {
+    color: 'bg-purple-100 text-purple-800',
+    dotColor: 'bg-purple-500',
+  },
+  soft_disq: {
+    color: 'bg-orange-100 text-orange-800',
+    dotColor: 'bg-orange-500',
+  },
+  hard_disq: { color: 'bg-red-100 text-red-800', dotColor: 'bg-red-500' },
+  waitlist: { color: 'bg-cyan-100 text-cyan-800', dotColor: 'bg-cyan-500' },
+  abandoned: { color: 'bg-gray-100 text-gray-800', dotColor: 'bg-gray-400' },
+};
+
+const statuses: {
+  value: LoanStatus;
+  label: string;
+  color: string;
+  dotColor: string;
+}[] = CANDIDATE_STATUS_ORDER.map((value) => ({
+  value,
+  label: CANDIDATE_STATUS_LABELS[value],
+  ...SIDEBAR_STATUS_STYLE[value],
+}));
 
 const Sidebar = () => {
   const dispatch = useAppDispatch();

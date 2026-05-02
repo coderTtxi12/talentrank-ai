@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setFilters, clearFilters, fetchLoans } from '@/store/slices/loansSlice';
 import { Button } from '@/components/ui';
 import type { CountryCode, LoanStatus } from '@/types/loan';
+import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
 
 const countries: { code: CountryCode; name: string; flag: string }[] = [
   { code: 'ES', name: 'España', flag: '🇪🇸' },
@@ -13,15 +14,11 @@ const countries: { code: CountryCode; name: string; flag: string }[] = [
   { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
 ];
 
-const statuses: { value: LoanStatus; label: string }[] = [
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'VALIDATING', label: 'Validating' },
-  { value: 'IN_REVIEW', label: 'In Review' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'DISBURSED', label: 'Disbursed' },
-  { value: 'CANCELLED', label: 'Cancelled' },
-];
+const statuses: { value: LoanStatus; label: string }[] =
+  CANDIDATE_STATUS_ORDER.map((value) => ({
+    value,
+    label: CANDIDATE_STATUS_LABELS[value],
+  }));
 
 const LoanFilters = () => {
   const dispatch = useAppDispatch();

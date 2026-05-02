@@ -7,7 +7,13 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchLoans, fetchStatistics, setFilters } from '@/store/slices/loansSlice';
 import { Card } from '@/components/ui';
 import { StatusBadge } from '@/components/loans';
-import type { LoanStatus, CountryCode } from '@/types/loan';
+import {
+  CANDIDATE_STATUS_ORDER,
+  CANDIDATE_STATUS_LABELS,
+  CANDIDATE_STATUS_CHART_COLORS,
+  type LoanStatus,
+  type CountryCode,
+} from '@/types/loan';
 
 // Country info
 const countries: Record<CountryCode, { name: string; flag: string }> = {
@@ -17,17 +23,12 @@ const countries: Record<CountryCode, { name: string; flag: string }> = {
   BR: { name: 'Brasil', flag: '🇧🇷' },
 };
 
-// Status info - include all possible statuses
-const statuses: { status: LoanStatus; label: string; color: string }[] = [
-  { status: 'PENDING', label: 'Pending', color: 'bg-yellow-500' },
-  { status: 'VALIDATING', label: 'Validating', color: 'bg-blue-400' },
-  { status: 'IN_REVIEW', label: 'In Review', color: 'bg-purple-500' },
-  { status: 'APPROVED', label: 'Approved', color: 'bg-green-500' },
-  { status: 'REJECTED', label: 'Rejected', color: 'bg-red-500' },
-  { status: 'CANCELLED', label: 'Cancelled', color: 'bg-gray-400' },
-  { status: 'DISBURSED', label: 'Disbursed', color: 'bg-teal-500' },
-  { status: 'COMPLETED', label: 'Completed', color: 'bg-emerald-600' },
-];
+const statuses: { status: LoanStatus; label: string; color: string }[] =
+  CANDIDATE_STATUS_ORDER.map((status) => ({
+    status,
+    label: CANDIDATE_STATUS_LABELS[status],
+    color: CANDIDATE_STATUS_CHART_COLORS[status],
+  }));
 
 const Dashboard = () => {
   const dispatch = useAppDispatch();

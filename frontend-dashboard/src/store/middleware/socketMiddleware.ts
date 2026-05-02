@@ -10,6 +10,7 @@ import {
   statusChanged,
   fetchStatistics,
 } from '@/store/slices/loansSlice';
+import { CANDIDATE_STATUS_LABELS, type CandidateStatus } from '@/types/loan';
 import { addNotification } from '@/store/slices/uiSlice';
 
 let listenersInitialized = false;
@@ -50,12 +51,17 @@ const setupSocketListeners = (dispatch: (action: any) => unknown): void => {
     dispatch(
       addNotification({
         type:
-          data.new_status === 'APPROVED'
+          data.new_status === 'qualified' ||
+          data.new_status === 'qualified_flagged'
             ? 'success'
-            : data.new_status === 'REJECTED'
+            : data.new_status === 'hard_disq' ||
+                data.new_status === 'soft_disq'
               ? 'error'
               : 'info',
-        message: `Solicitud ${data.loan_id.slice(0, 8)}… → ${data.new_status}`,
+        message: `Solicitud ${data.loan_id.slice(0, 8)}… → ${
+          CANDIDATE_STATUS_LABELS[data.new_status as CandidateStatus] ??
+          data.new_status
+        }`,
         duration: 5000,
       })
     );

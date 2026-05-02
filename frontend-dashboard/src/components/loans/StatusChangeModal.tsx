@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import { Modal, Button, Select } from '@/components/ui';
 import Input from '@/components/ui/Input';
-import type { LoanStatus } from '@/types/loan';
+import type { LoanStatus, CandidateStatus } from '@/types/loan';
+import { CANDIDATE_STATUS_LABELS } from '@/types/loan';
 
 interface StatusChangeModalProps {
   isOpen: boolean;
@@ -14,27 +15,24 @@ interface StatusChangeModalProps {
   loading?: boolean;
 }
 
-// Define allowed transitions
-const allowedTransitions: Record<LoanStatus, LoanStatus[]> = {
-  PENDING: ['VALIDATING', 'CANCELLED'],
-  VALIDATING: ['IN_REVIEW', 'APPROVED', 'REJECTED'],
-  IN_REVIEW: ['APPROVED', 'REJECTED'],
-  APPROVED: ['DISBURSED', 'CANCELLED'],
-  REJECTED: [],
-  DISBURSED: [],
-  CANCELLED: [],
-  COMPLETED: [],
-};
+const statusLabels = CANDIDATE_STATUS_LABELS;
 
-const statusLabels: Record<LoanStatus, string> = {
-  PENDING: 'Pending',
-  VALIDATING: 'Validating',
-  IN_REVIEW: 'In Review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  DISBURSED: 'Disbursed',
-  CANCELLED: 'Cancelled',
-  COMPLETED: 'Completed',
+const allowedTransitions: Record<CandidateStatus, CandidateStatus[]> = {
+  new: ['in_progress', 'waitlist', 'abandoned'],
+  in_progress: [
+    'qualified',
+    'qualified_flagged',
+    'soft_disq',
+    'hard_disq',
+    'waitlist',
+    'abandoned',
+  ],
+  qualified: ['qualified_flagged', 'soft_disq', 'waitlist'],
+  qualified_flagged: ['qualified', 'soft_disq', 'hard_disq'],
+  soft_disq: ['in_progress', 'qualified', 'waitlist'],
+  hard_disq: [],
+  waitlist: ['in_progress', 'qualified', 'new'],
+  abandoned: ['in_progress', 'new'],
 };
 
 const StatusChangeModal = ({
@@ -56,8 +54,11 @@ const StatusChangeModal = ({
       return;
     }
 
-    if (['REJECTED', 'CANCELLED'].includes(newStatus) && !reason.trim()) {
-      setError('Reason is required for rejection or cancellation');
+    if (
+      ['hard_disq', 'soft_disq', 'abandoned'].includes(newStatus) &&
+      !reason.trim()
+    ) {
+      setError('Motivo obligatorio para descalificación o abandono');
       return;
     }
 
@@ -105,8 +106,9 @@ const StatusChangeModal = ({
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter reason for status change"
               helperText={
-                newStatus && ['REJECTED', 'CANCELLED'].includes(newStatus)
-                  ? 'Required for rejection or cancellation'
+                newStatus &&
+                ['hard_disq', 'soft_disq', 'abandoned'].includes(newStatus)
+                  ? 'Obligatorio para descalificación o abandono'
                   : undefined
               }
             />
@@ -124,7 +126,11 @@ const StatusChangeModal = ({
                 Cancel
               </Button>
               <Button
-                variant={newStatus === 'REJECTED' ? 'danger' : 'primary'}
+                variant={
+                  newStatus === 'hard_disq' || newStatus === 'soft_disq'
+                    ? 'danger'
+                    : 'primary'
+                }
                 onClick={handleConfirm}
                 loading={loading}
               >
