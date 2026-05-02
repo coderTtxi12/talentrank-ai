@@ -1,19 +1,24 @@
 /**
- * Loan detail page with full information and status management.
+ * Detalle de candidato e historial de estado.
  */
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchLoanById, updateLoanStatus, fetchLoanHistory, clearSelectedLoan } from '@/store/slices/loansSlice';
+import {
+  fetchCandidateById,
+  updateCandidateStatus,
+  fetchCandidateHistory,
+  clearSelectedCandidate,
+} from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
-import { 
-  LoanInfo, 
-  StatusTimeline, 
-  StatusChangeModal, 
-  RealTimeIndicator 
-} from '@/components/loans';
-import { subscribeToLoan, unsubscribeFromLoan } from '@/services/socket';
-import type { LoanStatus, LoanStatusHistory } from '@/types/loan';
+import {
+  CandidateInfo,
+  StatusTimeline,
+  StatusChangeModal,
+  RealTimeIndicator,
+} from '@/components/candidates';
+import { subscribeToCandidateRoom, unsubscribeFromCandidateRoom } from '@/services/socket';
+import type { CandidateStatus, CandidateStatusHistory } from '@/types/candidate';
 import {
   DETAIL_TITLE,
   DETAIL_BACK,
@@ -26,41 +31,37 @@ import {
   DETAIL_NAV_SHORT,
 } from '@/constants/branding';
 
-const LoanDetail = () => {
+const CandidateDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { selectedLoan, loading, error } = useAppSelector((state) => state.loans);
+  const { selectedCandidate, loading, error } = useAppSelector((state) => state.candidates);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
-  const [history, setHistory] = useState<LoanStatusHistory[]>([]);
+  const [history, setHistory] = useState<CandidateStatusHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Fetch loan on mount
   useEffect(() => {
     if (id) {
-      dispatch(fetchLoanById(id));
-      
-      // Subscribe to real-time updates
-      subscribeToLoan(id);
+      dispatch(fetchCandidateById(id));
+      subscribeToCandidateRoom(id);
     }
 
     return () => {
-      dispatch(clearSelectedLoan());
+      dispatch(clearSelectedCandidate());
       if (id) {
-        unsubscribeFromLoan(id);
+        unsubscribeFromCandidateRoom(id);
       }
     };
   }, [dispatch, id]);
 
-  // Fetch history
   useEffect(() => {
     const loadHistory = async () => {
       if (id) {
         setHistoryLoading(true);
         try {
-          const result = await dispatch(fetchLoanHistory(id)).unwrap();
+          const result = await dispatch(fetchCandidateHistory(id)).unwrap();
           setHistory(result.history || []);
         } catch {
           setHistory([]);
@@ -70,24 +71,23 @@ const LoanDetail = () => {
       }
     };
     loadHistory();
-  }, [dispatch, id, selectedLoan?.status]);
+  }, [dispatch, id, selectedCandidate?.status]);
 
-  const handleStatusChange = async (newStatus: LoanStatus, reason: string) => {
+  const handleStatusChange = async (newStatus: CandidateStatus, reason: string) => {
     if (!id) return;
-    
+
     setStatusLoading(true);
     try {
-      await dispatch(updateLoanStatus({ loanId: id, status: newStatus, reason })).unwrap();
+      await dispatch(updateCandidateStatus({ candidateId: id, status: newStatus, reason })).unwrap();
       setShowStatusModal(false);
-      // Refresh history
-      const result = await dispatch(fetchLoanHistory(id)).unwrap();
+      const result = await dispatch(fetchCandidateHistory(id)).unwrap();
       setHistory(result.history || []);
     } finally {
       setStatusLoading(false);
     }
   };
 
-  if (loading && !selectedLoan) {
+  if (loading && !selectedCandidate) {
     return (
       <div className="flex justify-center items-center min-h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
@@ -101,37 +101,36 @@ const LoanDetail = () => {
         <div className="text-4xl mb-4">❌</div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">{DETAIL_ERROR_LOAD}</h2>
         <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => navigate('/loans')}>{DETAIL_NAV_SHORT}</Button>
+        <Button onClick={() => navigate('/candidates')}>{DETAIL_NAV_SHORT}</Button>
       </div>
     );
   }
 
-  if (!selectedLoan) {
+  if (!selectedCandidate) {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-4">🔍</div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">{DETAIL_NOT_FOUND}</h2>
         <p className="text-gray-600 mb-4">{DETAIL_NOT_FOUND_DESC}</p>
-        <Button onClick={() => navigate('/loans')}>{DETAIL_NAV_SHORT}</Button>
+        <Button onClick={() => navigate('/candidates')}>{DETAIL_NAV_SHORT}</Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <Link
-              to="/loans"
+              to="/candidates"
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
               {DETAIL_BACK}
             </Link>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{DETAIL_TITLE}</h1>
-          <p className="text-gray-600 font-mono text-sm">{selectedLoan.id}</p>
+          <p className="text-gray-600 font-mono text-sm">{selectedCandidate.id}</p>
         </div>
         <div className="flex items-center gap-4">
           <RealTimeIndicator />
@@ -141,16 +140,13 @@ const LoanDetail = () => {
         </div>
       </div>
 
-      {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info - 2 columns */}
         <div className="lg:col-span-2">
           <Card title={DETAIL_CARD_INFO}>
-            <LoanInfo loan={selectedLoan} />
+            <CandidateInfo candidate={selectedCandidate} />
           </Card>
         </div>
 
-        {/* Status Timeline - 1 column */}
         <div>
           <Card title={DETAIL_CARD_HISTORY}>
             <StatusTimeline history={history} loading={historyLoading} />
@@ -158,16 +154,15 @@ const LoanDetail = () => {
         </div>
       </div>
 
-      {/* Status Change Modal */}
       <StatusChangeModal
         isOpen={showStatusModal}
         onClose={() => setShowStatusModal(false)}
         onConfirm={handleStatusChange}
-        currentStatus={selectedLoan.status}
+        currentStatus={selectedCandidate.status}
         loading={statusLoading}
       />
     </div>
   );
 };
 
-export default LoanDetail;
+export default CandidateDetail;

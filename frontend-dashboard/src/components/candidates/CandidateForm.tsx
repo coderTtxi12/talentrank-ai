@@ -1,5 +1,5 @@
 /**
- * Loan creation form component with dynamic validation.
+ * Formulario de alta de candidato.
  */
 import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
@@ -13,7 +13,7 @@ import {
   getDocumentPlaceholder,
   getCurrency 
 } from '@/utils/validators';
-import type { CountryCode, LoanCreateRequest } from '@/types/loan';
+import type { CountryCode, CandidateCreateRequest } from '@/types/candidate';
 import {
   FORM_CARD_COUNTRY_TITLE,
   FORM_CARD_COUNTRY_SUB,
@@ -26,8 +26,8 @@ import {
   FORM_BTN_SUBMIT_LOADING,
 } from '@/constants/branding';
 
-interface LoanFormProps {
-  onSubmit: (data: LoanCreateRequest) => Promise<void>;
+interface CandidateFormProps {
+  onSubmit: (data: CandidateCreateRequest) => Promise<void>;
   loading?: boolean;
 }
 
@@ -37,7 +37,7 @@ const countries: { code: CountryCode; name: string; flag: string }[] = [
 ];
 
 // Base schema with dynamic document validation based on country_code
-const loanSchema = z.object({
+const candidateSchema = z.object({
   country_code: z.enum(['ES', 'MX'] as const),
   document_number: z
     .string()
@@ -71,9 +71,9 @@ const loanSchema = z.object({
   }
 });
 
-type LoanFormData = z.infer<typeof loanSchema>;
+type CandidateFormData = z.infer<typeof candidateSchema>;
 
-const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
+const CandidateForm = ({ onSubmit, loading = false }: CandidateFormProps) => {
   const {
     register,
     handleSubmit,
@@ -83,8 +83,8 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
     setValue,
     formState: { errors },
     trigger,
-  } = useForm<LoanFormData>({
-    resolver: zodResolver(loanSchema),
+  } = useForm<CandidateFormData>({
+    resolver: zodResolver(candidateSchema),
     defaultValues: {
       country_code: 'MX',
       document_number: '',
@@ -117,19 +117,19 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
     trigger('document_number');
   }, [selectedCountry, setValue, trigger]);
 
-  const handleFormSubmit = async (data: LoanFormData) => {
+  const handleFormSubmit = async (data: CandidateFormData) => {
     // Add document_type based on selected country
     // Ensure numbers are properly formatted (FastAPI expects Decimal which accepts numbers)
-    const submitData: LoanCreateRequest = {
+    const submitData: CandidateCreateRequest = {
       country_code: data.country_code,
-      document_type: getDocumentType(data.country_code) as LoanCreateRequest['document_type'],
+      document_type: getDocumentType(data.country_code) as CandidateCreateRequest['document_type'],
       document_number: data.document_number.trim(),
       full_name: data.full_name.trim(),
       amount_requested: Number(data.amount_requested),
       monthly_income: Number(data.monthly_income),
     };
     
-    console.log('Submitting loan data:', submitData);
+    console.log('Submitting candidate data:', submitData);
     await onSubmit(submitData);
   };
 
@@ -208,7 +208,7 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
         </div>
       </Card>
 
-      {/* Loan Details */}
+      {/* Importes */}
       <Card title={FORM_CARD_AMOUNTS_TITLE} subtitle={FORM_CARD_AMOUNTS_SUB}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Controller
@@ -296,4 +296,4 @@ const LoanForm = ({ onSubmit, loading = false }: LoanFormProps) => {
   );
 };
 
-export default LoanForm;
+export default CandidateForm;

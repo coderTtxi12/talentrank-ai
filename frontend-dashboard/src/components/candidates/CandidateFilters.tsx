@@ -1,11 +1,11 @@
 /**
- * Loan filters component.
+ * Filtros de listado de candidatos.
  */
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { setFilters, clearFilters, fetchLoans } from '@/store/slices/loansSlice';
+import { setFilters, clearFilters, fetchCandidates } from '@/store/slices/candidatesSlice';
 import { Button } from '@/components/ui';
-import type { CountryCode, LoanStatus } from '@/types/loan';
-import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
+import type { CountryCode, CandidateStatus } from '@/types/candidate';
+import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/candidate';
 import {
   FILTERS_LABEL_COUNTRY,
   FILTERS_ALL_COUNTRIES,
@@ -19,31 +19,31 @@ const countries: { code: CountryCode; name: string; flag: string }[] = [
   { code: 'MX', name: 'México', flag: '🇲🇽' },
 ];
 
-const statuses: { value: LoanStatus; label: string }[] =
+const statuses: { value: CandidateStatus; label: string }[] =
   CANDIDATE_STATUS_ORDER.map((value) => ({
     value,
     label: CANDIDATE_STATUS_LABELS[value],
   }));
 
-const LoanFilters = () => {
+const CandidateFilters = () => {
   const dispatch = useAppDispatch();
-  const { filters } = useAppSelector((state) => state.loans);
+  const { filters } = useAppSelector((state) => state.candidates);
 
   const handleCountryChange = (value: string) => {
     const countryCode = value === '' ? null : (value as CountryCode);
     dispatch(setFilters({ country_code: countryCode, page: 1 }));
-    dispatch(fetchLoans({ country_code: countryCode, page: 1 }));
+    dispatch(fetchCandidates({ country_code: countryCode, page: 1 }));
   };
 
   const handleStatusChange = (value: string) => {
-    const status = value === '' ? null : (value as LoanStatus);
+    const status = value === '' ? null : (value as CandidateStatus);
     dispatch(setFilters({ status, page: 1 }));
-    dispatch(fetchLoans({ status, page: 1 }));
+    dispatch(fetchCandidates({ status, page: 1 }));
   };
 
   const handleClearFilters = () => {
     dispatch(clearFilters());
-    dispatch(fetchLoans({ page: 1 }));
+    dispatch(fetchCandidates({ page: 1 }));
   };
 
   const hasActiveFilters =
@@ -121,4 +121,4 @@ const LoanFilters = () => {
   );
 };
 
-export default LoanFilters;
+export default CandidateFilters;

@@ -1,4 +1,4 @@
 /**
- * Types barrel export.
+ * Public types.
  */
-export * from './loan';
+export * from './candidate';

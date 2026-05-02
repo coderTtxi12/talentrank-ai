@@ -2,13 +2,13 @@
  * Redux store configuration.
  */
 import { configureStore } from '@reduxjs/toolkit';
-import loansReducer from './slices/loansSlice';
+import candidatesReducer from './slices/candidatesSlice';
 import uiReducer from './slices/uiSlice';
 import { socketMiddleware } from './middleware/socketMiddleware';
 
 export const store = configureStore({
   reducer: {
-    loans: loansReducer,
+    candidates: candidatesReducer,
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>

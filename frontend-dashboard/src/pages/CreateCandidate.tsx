@@ -1,13 +1,13 @@
 /**
- * Create loan form page.
+ * Alta de candidato (formulario).
  */
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
-import { createLoan } from '@/store/slices/loansSlice';
+import { createCandidate } from '@/store/slices/candidatesSlice';
 import { addNotification } from '@/store/slices/uiSlice';
-import { LoanForm } from '@/components/loans';
-import type { LoanCreateRequest } from '@/types/loan';
+import { CandidateForm } from '@/components/candidates';
+import type { CandidateCreateRequest } from '@/types/candidate';
 import {
   CREATE_TITLE,
   CREATE_SUBTITLE,
@@ -21,19 +21,19 @@ interface ErrorInfo {
   errors?: string[];
 }
 
-const CreateLoan = () => {
+const CreateCandidate = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorInfo | null>(null);
 
-  const handleSubmit = async (data: LoanCreateRequest) => {
+  const handleSubmit = async (data: CandidateCreateRequest) => {
     setLoading(true);
     setError(null);
 
     try {
-      const result = await dispatch(createLoan(data)).unwrap();
-      
+      const result = await dispatch(createCandidate(data)).unwrap();
+
       dispatch(
         addNotification({
           type: 'success',
@@ -42,26 +42,24 @@ const CreateLoan = () => {
         })
       );
 
-      // Redirect to the new loan's detail page
-      navigate(`/loans/${result.id}`);
-    } catch (err: any) {
-      // Handle error object with message from rejectWithValue
-      // err can be either { message, errors } object or a string (legacy)
+      navigate(`/candidates/${result.id}`);
+    } catch (err: unknown) {
       let errorInfo: ErrorInfo;
-      
+
       if (typeof err === 'string') {
         errorInfo = { message: err };
-      } else if (err?.message) {
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        const e = err as { message: string; errors?: string[] };
         errorInfo = {
-          message: err.message,
-          errors: err.errors || [],
+          message: e.message,
+          errors: e.errors || [],
         };
       } else {
         errorInfo = { message: CREATE_ERROR_FALLBACK };
       }
-      
+
       setError(errorInfo);
-      
+
       dispatch(
         addNotification({
           type: 'error',
@@ -76,11 +74,10 @@ const CreateLoan = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
           <Link
-            to="/loans"
+            to="/candidates"
             className="text-gray-500 hover:text-gray-700 transition-colors"
           >
             {CREATE_BACK}
@@ -90,7 +87,6 @@ const CreateLoan = () => {
         <p className="text-gray-600">{CREATE_SUBTITLE}</p>
       </div>
 
-      {/* Error message */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-start gap-2">
@@ -99,9 +95,9 @@ const CreateLoan = () => {
               <p className="text-sm font-medium text-red-700">{error.message}</p>
               {error.errors && error.errors.length > 0 && (
                 <ul className="mt-2 ml-4 list-disc space-y-1">
-                  {error.errors.map((err, index) => (
+                  {error.errors.map((errMsg, index) => (
                     <li key={index} className="text-sm text-red-600">
-                      {err}
+                      {errMsg}
                     </li>
                   ))}
                 </ul>
@@ -111,10 +107,9 @@ const CreateLoan = () => {
         </div>
       )}
 
-      {/* Form */}
-      <LoanForm onSubmit={handleSubmit} loading={loading} />
+      <CandidateForm onSubmit={handleSubmit} loading={loading} />
     </div>
   );
 };
 
-export default CreateLoan;
+export default CreateCandidate;

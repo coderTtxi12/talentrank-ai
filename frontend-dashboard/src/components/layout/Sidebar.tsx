@@ -3,10 +3,10 @@
  */
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { setFilters, fetchLoans } from '@/store/slices/loansSlice';
+import { setFilters, fetchCandidates } from '@/store/slices/candidatesSlice';
 import clsx from 'clsx';
-import type { LoanStatus, CountryCode, CandidateStatus } from '@/types/loan';
-import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/loan';
+import type { CandidateStatus, CountryCode } from '@/types/candidate';
+import { CANDIDATE_STATUS_ORDER, CANDIDATE_STATUS_LABELS } from '@/types/candidate';
 import {
   NAV_HOME,
   NAV_CANDIDATES,
@@ -39,7 +39,7 @@ const navigation: NavItem[] = [
   },
   {
     name: NAV_CANDIDATES,
-    path: '/loans',
+    path: '/candidates',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -53,7 +53,7 @@ const navigation: NavItem[] = [
   },
   {
     name: NAV_NEW_CANDIDATE,
-    path: '/loans/new',
+    path: '/candidates/new',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -106,7 +106,7 @@ const SIDEBAR_STATUS_STYLE: Record<
 };
 
 const statuses: {
-  value: LoanStatus;
+  value: CandidateStatus;
   label: string;
   color: string;
   dotColor: string;
@@ -120,7 +120,7 @@ const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { sidebarOpen } = useAppSelector((state) => state.ui);
-  const { filters } = useAppSelector((state) => state.loans);
+  const { filters } = useAppSelector((state) => state.candidates);
 
   const handleCountryFilter = (code: CountryCode) => {
     const newCountryCode = filters.country_code === code ? null : code;
@@ -128,23 +128,21 @@ const Sidebar = () => {
       country_code: newCountryCode,
       page: 1 
     }));
-    // Navigate to loans page and fetch with filter
-    navigate('/loans');
-    dispatch(fetchLoans({ 
+    navigate('/candidates');
+    dispatch(fetchCandidates({ 
       country_code: newCountryCode || undefined,
       page: 1 
     }));
   };
 
-  const handleStatusFilter = (status: LoanStatus) => {
+  const handleStatusFilter = (status: CandidateStatus) => {
     const newStatus = filters.status === status ? null : status;
     dispatch(setFilters({ 
       status: newStatus,
       page: 1 
     }));
-    // Navigate to loans page and fetch with filter
-    navigate('/loans');
-    dispatch(fetchLoans({ 
+    navigate('/candidates');
+    dispatch(fetchCandidates({ 
       status: newStatus || undefined,
       page: 1 
     }));
@@ -213,6 +211,7 @@ const Sidebar = () => {
             {statuses.map((status) => (
               <button
                 key={status.value}
+                type="button"
                 onClick={() => handleStatusFilter(status.value)}
                 className={clsx(
                   'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',

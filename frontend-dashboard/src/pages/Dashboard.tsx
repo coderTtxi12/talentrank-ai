@@ -1,19 +1,20 @@
 /**
- * Dashboard page with statistics and recent loans.
+ * Panel principal: estadísticas y candidatos recientes.
  */
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchLoans, fetchStatistics, setFilters } from '@/store/slices/loansSlice';
+import { fetchCandidates, fetchStatistics, setFilters } from '@/store/slices/candidatesSlice';
 import { Card } from '@/components/ui';
-import { StatusBadge } from '@/components/loans';
+import { StatusBadge } from '@/components/candidates';
+import { CandidateStatusTooltip } from '@/components/candidates/CandidateStatusTooltip';
 import {
   CANDIDATE_STATUS_ORDER,
   CANDIDATE_STATUS_LABELS,
   CANDIDATE_STATUS_CHART_COLORS,
-  type LoanStatus,
+  type CandidateStatus,
   type CountryCode,
-} from '@/types/loan';
+} from '@/types/candidate';
 import {
   DASH_TITLE,
   DASH_SUBTITLE,
@@ -38,7 +39,7 @@ const countries: Record<CountryCode, { name: string; flag: string }> = {
   MX: { name: 'México', flag: '🇲🇽' },
 };
 
-const statuses: { status: LoanStatus; label: string; color: string }[] =
+const statuses: { status: CandidateStatus; label: string; color: string }[] =
   CANDIDATE_STATUS_ORDER.map((status) => ({
     status,
     label: CANDIDATE_STATUS_LABELS[status],
@@ -47,7 +48,7 @@ const statuses: { status: LoanStatus; label: string; color: string }[] =
 
 const Dashboard = () => {
   const dispatch = useAppDispatch();
-  const { items, statistics, loading } = useAppSelector((state) => state.loans);
+  const { items, statistics, loading } = useAppSelector((state) => state.candidates);
 
   useEffect(() => {
     // Clear all filters when visiting dashboard
@@ -58,9 +59,9 @@ const Dashboard = () => {
       page: 1 
     }));
     
-    // Fetch statistics and recent loans
+    // Estadísticas y muestra reciente de candidatos
     dispatch(fetchStatistics(undefined));
-    dispatch(fetchLoans({ page: 1, page_size: 5 }));
+    dispatch(fetchCandidates({ page: 1, page_size: 5 }));
   }, [dispatch]);
 
   const formatCurrency = (amount: number) => {
@@ -81,7 +82,7 @@ const Dashboard = () => {
           <p className="text-gray-600">{DASH_SUBTITLE}</p>
         </div>
         <Link
-          to="/loans/new"
+          to="/candidates/new"
           className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           {DASH_BTN_NEW}
@@ -90,7 +91,7 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-        {/* Total Loans */}
+        {/* Total candidatos */}
         <Card className="bg-gradient-to-br from-primary-500 to-primary-600 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
@@ -135,8 +136,12 @@ const Dashboard = () => {
                 : 0;
               return (
                 <div key={status} className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${color}`} />
-                  <span className="flex-1 text-sm text-gray-700">{label}</span>
+                  <div className={`w-3 h-3 shrink-0 rounded-full ${color}`} />
+                  <CandidateStatusTooltip status={status} className="min-w-0 flex-1">
+                    <span className="block cursor-default text-sm text-gray-700">
+                      {label}
+                    </span>
+                  </CandidateStatusTooltip>
                   <span className="text-sm font-medium text-gray-900">{count}</span>
                   <div className="w-24 bg-gray-200 rounded-full h-2">
                     <div
@@ -184,7 +189,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Recent Loans */}
+      {/* Candidatos recientes */}
       <Card title={DASH_RECENT_TITLE} subtitle={DASH_RECENT_SUBTITLE}>
         {loading ? (
           <div className="flex justify-center py-8">
@@ -215,32 +220,32 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {items.slice(0, 5).map((loan) => (
+                {items.slice(0, 5).map((candidateRow) => (
                   <tr
-                    key={loan.id}
+                    key={candidateRow.id}
                     className="border-b border-gray-100 hover:bg-gray-50"
                   >
                     <td className="py-3 px-4">
                       <Link
-                        to={`/loans/${loan.id}`}
+                        to={`/candidates/${candidateRow.id}`}
                         className="text-primary-600 hover:underline font-mono text-sm"
                       >
-                        {loan.id.slice(0, 8)}...
+                        {candidateRow.id.slice(0, 8)}...
                       </Link>
                     </td>
                     <td className="py-3 px-4">
                       <span className="text-lg">
-                        {countries[loan.country_code]?.flag}
+                        {countries[candidateRow.country_code]?.flag}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
-                      {loan.full_name}
+                      {candidateRow.full_name}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
-                      {formatCurrency(loan.amount_requested)} {loan.currency}
+                      {formatCurrency(candidateRow.amount_requested)} {candidateRow.currency}
                     </td>
                     <td className="py-3 px-4">
-                      <StatusBadge status={loan.status} size="sm" />
+                      <StatusBadge status={candidateRow.status} size="sm" />
                     </td>
                   </tr>
                 ))}
@@ -250,7 +255,7 @@ const Dashboard = () => {
         )}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <Link
-            to="/loans"
+            to="/candidates"
             className="text-primary-600 hover:text-primary-700 text-sm font-medium"
           >
             {DASH_VIEW_ALL}

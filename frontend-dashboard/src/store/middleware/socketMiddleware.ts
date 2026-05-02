@@ -5,25 +5,26 @@ import { Middleware } from '@reduxjs/toolkit';
 
 import { connectSocket, getSocket } from '@/services/socket';
 import {
-  loanUpdated,
-  loanCreated,
+  candidateUpdated,
+  candidateCreated,
   statusChanged,
   fetchStatistics,
-} from '@/store/slices/loansSlice';
-import { CANDIDATE_STATUS_LABELS, type CandidateStatus } from '@/types/loan';
+} from '@/store/slices/candidatesSlice';
+import { CANDIDATE_STATUS_LABELS, type CandidateStatus } from '@/types/candidate';
 import { addNotification } from '@/store/slices/uiSlice';
 import { TOAST_NEW_CANDIDATE, TOAST_STATUS_LINE } from '@/constants/branding';
 
 let listenersInitialized = false;
 let initialConnectDone = false;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const setupSocketListeners = (dispatch: (action: any) => unknown): void => {
   const socket = getSocket();
   if (!socket || listenersInitialized) return;
 
   socket.on('loan_created', (data: any) => {
-    console.log('[Socket.IO] Loan created:', data);
-    dispatch(loanCreated(data.data));
+    console.log('[Socket.IO] Candidate created:', data);
+    dispatch(candidateCreated(data.data));
     dispatch(fetchStatistics(undefined));
     dispatch(
       addNotification({
@@ -35,8 +36,8 @@ const setupSocketListeners = (dispatch: (action: any) => unknown): void => {
   });
 
   socket.on('loan_updated', (data: any) => {
-    console.log('[Socket.IO] Loan updated:', data);
-    dispatch(loanUpdated({ id: data.loan_id, ...data.changes }));
+    console.log('[Socket.IO] Candidate updated:', data);
+    dispatch(candidateUpdated({ id: data.loan_id, ...data.changes }));
     dispatch(fetchStatistics(undefined));
   });
 

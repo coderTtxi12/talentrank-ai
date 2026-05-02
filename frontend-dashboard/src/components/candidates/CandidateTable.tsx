@@ -1,8 +1,8 @@
 /**
- * Loan table component with sorting and highlighting.
+ * Tabla de candidatos.
  */
 import { Link } from 'react-router-dom';
-import type { Loan, CountryCode } from '@/types/loan';
+import type { Candidate, CountryCode } from '@/types/candidate';
 import {
   TABLE_EMPTY,
   TABLE_EMPTY_HINT,
@@ -15,11 +15,11 @@ import {
   TABLE_COL_DATE,
   TABLE_TITLE_REVIEW,
 } from '@/constants/branding';
-import { StatusBadge } from '@/components/loans';
+import { StatusBadge } from '@/components/candidates';
 import clsx from 'clsx';
 
-interface LoanTableProps {
-  loans: Loan[];
+interface CandidateTableProps {
+  candidates: Candidate[];
   loading?: boolean;
 }
 
@@ -28,7 +28,7 @@ const countries: Record<CountryCode, { name: string; flag: string }> = {
   MX: { name: 'México', flag: '🇲🇽' },
 };
 
-const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
+const CandidateTable = ({ candidates, loading = false }: CandidateTableProps) => {
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -54,7 +54,7 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
     );
   }
 
-  if (loans.length === 0) {
+  if (candidates.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-3">📋</div>
@@ -96,22 +96,22 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
           </tr>
         </thead>
         <tbody>
-          {loans.map((loan) => (
+          {candidates.map((row) => (
             <tr
-              key={loan.id}
+              key={row.id}
               className={clsx(
                 'border-b border-gray-100 hover:bg-gray-50 transition-colors',
-                loan.requires_review && 'bg-yellow-50 hover:bg-yellow-100'
+                row.requires_review && 'bg-yellow-50 hover:bg-yellow-100'
               )}
             >
               <td className="py-3 px-4">
                 <Link
-                  to={`/loans/${loan.id}`}
+                  to={`/candidates/${row.id}`}
                   className="text-primary-600 hover:underline font-mono text-sm"
                 >
-                  {loan.id.slice(0, 8)}...
+                  {row.id.slice(0, 8)}...
                 </Link>
-                {loan.requires_review && (
+                {row.requires_review && (
                   <span className="ml-2 text-yellow-600" title={TABLE_TITLE_REVIEW}>
                     ⚠️
                   </span>
@@ -119,48 +119,48 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
               </td>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{countries[loan.country_code]?.flag}</span>
-                  <span className="text-sm text-gray-500">{loan.country_code}</span>
+                  <span className="text-lg">{countries[row.country_code]?.flag}</span>
+                  <span className="text-sm text-gray-500">{row.country_code}</span>
                 </div>
               </td>
               <td className="py-3 px-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{loan.full_name}</p>
+                  <p className="text-sm font-medium text-gray-900">{row.full_name}</p>
                 </div>
               </td>
               <td className="py-3 px-4">
                 <div>
-                  <span className="text-xs text-gray-500">{loan.document_type}</span>
-                  <p className="text-sm font-mono text-gray-900">{loan.document_number}</p>
+                  <span className="text-xs text-gray-500">{row.document_type}</span>
+                  <p className="text-sm font-mono text-gray-900">{row.document_number}</p>
                 </div>
               </td>
               <td className="py-3 px-4">
                 <p className="text-sm font-medium text-gray-900">
-                  {formatCurrency(loan.amount_requested, loan.currency)}
+                  {formatCurrency(row.amount_requested, row.currency)}
                 </p>
-                <p className="text-xs text-gray-500">{loan.currency}</p>
+                <p className="text-xs text-gray-500">{row.currency}</p>
               </td>
               <td className="py-3 px-4">
-                <StatusBadge status={loan.status} size="sm" />
+                <StatusBadge status={row.status} size="sm" />
               </td>
               <td className="py-3 px-4">
-                {loan.risk_score !== null ? (
+                {row.risk_score !== null ? (
                   <span
                     className={clsx(
                       'text-sm font-medium',
-                      loan.risk_score <= 300 && 'text-green-600',
-                      loan.risk_score > 300 && loan.risk_score < 700 && 'text-yellow-600',
-                      loan.risk_score >= 700 && 'text-red-600'
+                      row.risk_score <= 300 && 'text-green-600',
+                      row.risk_score > 300 && row.risk_score < 700 && 'text-yellow-600',
+                      row.risk_score >= 700 && 'text-red-600'
                     )}
                   >
-                    {loan.risk_score}
+                    {row.risk_score}
                   </span>
                 ) : (
                   <span className="text-sm text-gray-400">—</span>
                 )}
               </td>
               <td className="py-3 px-4 text-sm text-gray-500">
-                {formatDate(loan.created_at)}
+                {formatDate(row.created_at)}
               </td>
             </tr>
           ))}
@@ -170,4 +170,4 @@ const LoanTable = ({ loans, loading = false }: LoanTableProps) => {
   );
 };
 
-export default LoanTable;
+export default CandidateTable;

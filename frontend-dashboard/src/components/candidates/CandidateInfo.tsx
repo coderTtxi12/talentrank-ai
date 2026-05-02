@@ -1,7 +1,7 @@
 /**
- * Loan information display component.
+ * Ficha de detalle de un candidato.
  */
-import type { Loan, CountryCode } from '@/types/loan';
+import type { Candidate, CountryCode } from '@/types/candidate';
 import {
   INFO_STATUS_LABEL,
   INFO_RISK_LABEL,
@@ -9,10 +9,10 @@ import {
   INFO_SECTION_APPLICANT,
   INFO_SECTION_AMOUNTS,
 } from '@/constants/branding';
-import { StatusBadge } from '@/components/loans';
+import { StatusBadge } from '@/components/candidates';
 
-interface LoanInfoProps {
-  loan: Loan;
+interface CandidateInfoProps {
+  candidate: Candidate;
 }
 
 const countries: Record<CountryCode, { name: string; flag: string }> = {
@@ -20,7 +20,7 @@ const countries: Record<CountryCode, { name: string; flag: string }> = {
   MX: { name: 'México', flag: '🇲🇽' },
 };
 
-const LoanInfo = ({ loan }: LoanInfoProps) => {
+const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -53,17 +53,17 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
           <div>
             <p className="text-sm text-gray-500">{INFO_STATUS_LABEL}</p>
             <div className="mt-1">
-              <StatusBadge status={loan.status} size="lg" />
+              <StatusBadge status={candidate.status} size="lg" />
             </div>
           </div>
-          {loan.risk_score !== null && (
+          {candidate.risk_score !== null && (
             <div className="text-right">
               <p className="text-sm text-gray-500">{INFO_RISK_LABEL}</p>
-              <p className="text-2xl font-bold text-gray-900">{loan.risk_score}</p>
+              <p className="text-2xl font-bold text-gray-900">{candidate.risk_score}</p>
             </div>
           )}
         </div>
-        {loan.requires_review && (
+        {candidate.requires_review && (
           <div className="mt-3 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
             ⚠️ {INFO_REVIEW_BANNER}
           </div>
@@ -76,15 +76,15 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
           {INFO_SECTION_APPLICANT}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Full Name">{loan.full_name}</InfoRow>
-          <InfoRow label="Document Type">{loan.document_type}</InfoRow>
+          <InfoRow label="Full Name">{candidate.full_name}</InfoRow>
+          <InfoRow label="Document Type">{candidate.document_type}</InfoRow>
           <InfoRow label="Document Number">
-            <span className="font-mono">{loan.document_number}</span>
+            <span className="font-mono">{candidate.document_number}</span>
           </InfoRow>
         </div>
       </div>
 
-      {/* Loan Details */}
+      {/* Importes / país */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
           {INFO_SECTION_AMOUNTS}
@@ -92,126 +92,126 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <InfoRow label="Country">
             <span className="flex items-center gap-2">
-              <span className="text-lg">{countries[loan.country_code]?.flag}</span>
-              {countries[loan.country_code]?.name}
+              <span className="text-lg">{countries[candidate.country_code]?.flag}</span>
+              {countries[candidate.country_code]?.name}
             </span>
           </InfoRow>
           <InfoRow label="Amount Requested">
-            {formatCurrency(loan.amount_requested, loan.currency)}
+            {formatCurrency(candidate.amount_requested, candidate.currency)}
           </InfoRow>
-          <InfoRow label="Currency">{loan.currency}</InfoRow>
+          <InfoRow label="Currency">{candidate.currency}</InfoRow>
           <InfoRow label="Monthly Income">
-            {formatCurrency(loan.monthly_income, loan.currency)}
+            {formatCurrency(candidate.monthly_income, candidate.currency)}
           </InfoRow>
         </div>
       </div>
 
       {/* Banking Information */}
-      {loan.banking_info && (
+      {candidate.banking_info && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
             Banking Information
           </h3>
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            {(loan.banking_info.provider_name || loan.banking_info.provider) && (
+            {(candidate.banking_info.provider_name || candidate.banking_info.provider) && (
               <InfoRow label="Provider">
-                {loan.banking_info.provider_name || loan.banking_info.provider}
+                {candidate.banking_info.provider_name || candidate.banking_info.provider}
               </InfoRow>
             )}
-            {(loan.banking_info.credit_score !== null && loan.banking_info.credit_score !== undefined) && (
-              <InfoRow label="Credit Score">{loan.banking_info.credit_score}</InfoRow>
+            {(candidate.banking_info.credit_score !== null && candidate.banking_info.credit_score !== undefined) && (
+              <InfoRow label="Credit Score">{candidate.banking_info.credit_score}</InfoRow>
             )}
-            {(loan.banking_info.loan_score !== null && loan.banking_info.loan_score !== undefined && !loan.banking_info.credit_score) && (
-              <InfoRow label="Credit Score">{loan.banking_info.loan_score}</InfoRow>
+            {(candidate.banking_info.loan_score !== null && candidate.banking_info.loan_score !== undefined && !candidate.banking_info.credit_score) && (
+              <InfoRow label="Credit Score">{candidate.banking_info.loan_score}</InfoRow>
             )}
-            {loan.banking_info.total_debt !== null && loan.banking_info.total_debt !== undefined && (
+            {candidate.banking_info.total_debt !== null && candidate.banking_info.total_debt !== undefined && (
               <InfoRow label="Total Debt">
                 {formatCurrency(
-                  typeof loan.banking_info.total_debt === 'string' 
-                    ? parseFloat(loan.banking_info.total_debt) 
-                    : loan.banking_info.total_debt,
-                  loan.currency
+                  typeof candidate.banking_info.total_debt === 'string' 
+                    ? parseFloat(candidate.banking_info.total_debt) 
+                    : candidate.banking_info.total_debt,
+                  candidate.currency
                 )}
               </InfoRow>
             )}
-            {loan.banking_info.monthly_obligations !== null && loan.banking_info.monthly_obligations !== undefined && (
+            {candidate.banking_info.monthly_obligations !== null && candidate.banking_info.monthly_obligations !== undefined && (
               <InfoRow label="Monthly Obligations">
                 {formatCurrency(
-                  typeof loan.banking_info.monthly_obligations === 'string'
-                    ? parseFloat(loan.banking_info.monthly_obligations)
-                    : loan.banking_info.monthly_obligations,
-                  loan.currency
+                  typeof candidate.banking_info.monthly_obligations === 'string'
+                    ? parseFloat(candidate.banking_info.monthly_obligations)
+                    : candidate.banking_info.monthly_obligations,
+                  candidate.currency
                 )}
               </InfoRow>
             )}
-            {loan.banking_info.available_credit !== null && loan.banking_info.available_credit !== undefined && (
+            {candidate.banking_info.available_credit !== null && candidate.banking_info.available_credit !== undefined && (
               <InfoRow label="Available Credit">
                 {formatCurrency(
-                  typeof loan.banking_info.available_credit === 'string'
-                    ? parseFloat(loan.banking_info.available_credit)
-                    : loan.banking_info.available_credit,
-                  loan.currency
+                  typeof candidate.banking_info.available_credit === 'string'
+                    ? parseFloat(candidate.banking_info.available_credit)
+                    : candidate.banking_info.available_credit,
+                  candidate.currency
                 )}
               </InfoRow>
             )}
-            {loan.banking_info.account_age_months !== null && loan.banking_info.account_age_months !== undefined && (
+            {candidate.banking_info.account_age_months !== null && candidate.banking_info.account_age_months !== undefined && (
               <InfoRow label="Account Age">
-                {loan.banking_info.account_age_months} months
+                {candidate.banking_info.account_age_months} months
               </InfoRow>
             )}
-            {loan.banking_info.payment_history_score !== null && loan.banking_info.payment_history_score !== undefined && (
+            {candidate.banking_info.payment_history_score !== null && candidate.banking_info.payment_history_score !== undefined && (
               <InfoRow label="Payment History Score">
-                {loan.banking_info.payment_history_score}/100
+                {candidate.banking_info.payment_history_score}/100
               </InfoRow>
             )}
-            {loan.banking_info.payment_history && (
-              <InfoRow label="Payment History">{loan.banking_info.payment_history}</InfoRow>
+            {candidate.banking_info.payment_history && (
+              <InfoRow label="Payment History">{candidate.banking_info.payment_history}</InfoRow>
             )}
-            {loan.banking_info.has_defaults !== undefined && (
+            {candidate.banking_info.has_defaults !== undefined && (
               <InfoRow label="Has Defaults">
-                <span className={loan.banking_info.has_defaults ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                  {loan.banking_info.has_defaults ? 'Yes' : 'No'}
+                <span className={candidate.banking_info.has_defaults ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                  {candidate.banking_info.has_defaults ? 'Yes' : 'No'}
                 </span>
               </InfoRow>
             )}
-            {loan.banking_info.default_count !== undefined && loan.banking_info.default_count > 0 && (
+            {candidate.banking_info.default_count !== undefined && candidate.banking_info.default_count > 0 && (
               <InfoRow label="Default Count">
-                <span className="text-red-600 font-semibold">{loan.banking_info.default_count}</span>
+                <span className="text-red-600 font-semibold">{candidate.banking_info.default_count}</span>
               </InfoRow>
             )}
-            {loan.banking_info.income_verified !== undefined && (
+            {candidate.banking_info.income_verified !== undefined && (
               <InfoRow label="Income Verified">
-                <span className={loan.banking_info.income_verified ? 'text-green-600' : 'text-gray-500'}>
-                  {loan.banking_info.income_verified ? '✓ Verified' : '✗ Not Verified'}
+                <span className={candidate.banking_info.income_verified ? 'text-green-600' : 'text-gray-500'}>
+                  {candidate.banking_info.income_verified ? '✓ Verified' : '✗ Not Verified'}
                 </span>
               </InfoRow>
             )}
-            {loan.banking_info.employment_verified !== undefined && (
+            {candidate.banking_info.employment_verified !== undefined && (
               <InfoRow label="Employment Verified">
-                <span className={loan.banking_info.employment_verified ? 'text-green-600' : 'text-gray-500'}>
-                  {loan.banking_info.employment_verified ? '✓ Verified' : '✗ Not Verified'}
+                <span className={candidate.banking_info.employment_verified ? 'text-green-600' : 'text-gray-500'}>
+                  {candidate.banking_info.employment_verified ? '✓ Verified' : '✗ Not Verified'}
                 </span>
               </InfoRow>
             )}
-            {loan.banking_info.active_loans !== undefined && (
-              <InfoRow label="Active Loans">{loan.banking_info.active_loans}</InfoRow>
+            {candidate.banking_info.active_loans !== undefined && (
+              <InfoRow label="Active Loans">{candidate.banking_info.active_loans}</InfoRow>
             )}
           </div>
         </div>
       )}
 
       {/* Risk Factors & Warnings */}
-      {loan.extra_data && (
+      {candidate.extra_data && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
             Risk Analysis
           </h3>
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            {loan.extra_data.risk_factors && Object.keys(loan.extra_data.risk_factors).length > 0 && (
+            {candidate.extra_data.risk_factors && Object.keys(candidate.extra_data.risk_factors).length > 0 && (
               <div className="mb-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">Risk Factors:</p>
                 <div className="space-y-1">
-                  {Object.entries(loan.extra_data.risk_factors).map(([key, value]) => (
+                  {Object.entries(candidate.extra_data.risk_factors).map(([key, value]) => (
                     <div key={key} className="flex justify-between text-sm">
                       <span className="text-gray-600 capitalize">
                         {key.replace(/_/g, ' ')}:
@@ -226,11 +226,11 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
                 </div>
               </div>
             )}
-            {loan.extra_data.validation_warnings && loan.extra_data.validation_warnings.length > 0 && (
+            {candidate.extra_data.validation_warnings && candidate.extra_data.validation_warnings.length > 0 && (
               <div>
                 <p className="text-sm font-medium text-yellow-700 mb-2">Validation Warnings:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  {loan.extra_data.validation_warnings.map((warning, index) => (
+                  {candidate.extra_data.validation_warnings.map((warning, index) => (
                     <li key={index} className="text-sm text-yellow-600">
                       {warning}
                     </li>
@@ -248,10 +248,10 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
           Timeline
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Created">{formatDate(loan.created_at)}</InfoRow>
-          <InfoRow label="Last Updated">{formatDate(loan.updated_at)}</InfoRow>
-          {loan.processed_at && (
-            <InfoRow label="Processed">{formatDate(loan.processed_at)}</InfoRow>
+          <InfoRow label="Created">{formatDate(candidate.created_at)}</InfoRow>
+          <InfoRow label="Last Updated">{formatDate(candidate.updated_at)}</InfoRow>
+          {candidate.processed_at && (
+            <InfoRow label="Processed">{formatDate(candidate.processed_at)}</InfoRow>
           )}
         </div>
       </div>
@@ -259,4 +259,4 @@ const LoanInfo = ({ loan }: LoanInfoProps) => {
   );
 };
 
-export default LoanInfo;
+export default CandidateInfo;

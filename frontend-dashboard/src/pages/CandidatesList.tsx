@@ -1,12 +1,12 @@
 /**
- * Loans list page with filters and pagination.
+ * Listado de candidatos con filtros y paginación.
  */
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchLoans, setFilters } from '@/store/slices/loansSlice';
+import { fetchCandidates, setFilters } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
-import { LoanTable, LoanFilters, RealTimeIndicator } from '@/components/loans';
+import { CandidateTable, CandidateFilters, RealTimeIndicator } from '@/components/candidates';
 import {
   LIST_TITLE,
   LIST_SUBTITLE,
@@ -15,25 +15,23 @@ import {
   LIST_FILTERS_ACTIVE,
 } from '@/constants/branding';
 
-const LoansList = () => {
+const CandidatesList = () => {
   const dispatch = useAppDispatch();
-  const { items, loading, pagination, filters } = useAppSelector((state) => state.loans);
+  const { items, loading, pagination, filters } = useAppSelector((state) => state.candidates);
 
   useEffect(() => {
-    // Fetch loans with current filters when component mounts or filters change
-    dispatch(fetchLoans(undefined));
+    dispatch(fetchCandidates(undefined));
   }, [dispatch, filters.country_code, filters.status, filters.requires_review, filters.page]);
 
   const handlePageChange = (newPage: number) => {
     dispatch(setFilters({ page: newPage }));
-    dispatch(fetchLoans({ page: newPage }));
+    dispatch(fetchCandidates({ page: newPage }));
   };
 
   const pages = Array.from({ length: pagination.total_pages }, (_, i) => i + 1);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{LIST_TITLE}</h1>
@@ -42,7 +40,7 @@ const LoansList = () => {
         <div className="flex items-center gap-4">
           <RealTimeIndicator />
           <Link
-            to="/loans/new"
+            to="/candidates/new"
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             {LIST_BTN_NEW}
@@ -50,10 +48,8 @@ const LoansList = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <LoanFilters />
+      <CandidateFilters />
 
-      {/* Results info */}
       <div className="flex items-center justify-between text-sm text-gray-500">
         <span>
           {LIST_SHOWING(items.length, pagination.total)}
@@ -63,12 +59,10 @@ const LoansList = () => {
         )}
       </div>
 
-      {/* Loans table */}
       <Card padding="none">
-        <LoanTable loans={items} loading={loading} />
+        <CandidateTable candidates={items} loading={loading} />
       </Card>
 
-      {/* Pagination */}
       {pagination.total_pages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button
@@ -82,7 +76,6 @@ const LoansList = () => {
 
           <div className="flex items-center gap-1">
             {pages.map((page) => {
-              // Show first, last, current, and adjacent pages
               const showPage =
                 page === 1 ||
                 page === pagination.total_pages ||
@@ -129,4 +122,4 @@ const LoansList = () => {
   );
 };
 
-export default LoansList;
+export default CandidatesList;

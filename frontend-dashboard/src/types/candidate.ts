@@ -1,8 +1,8 @@
 /**
- * Loan types.
+ * Tipos del funnel de candidatos (screening). Las rutas HTTP siguen usando `/loans` en la API.
  */
 
-/** Aligned with backend `CandidateStatus` (see `backend/app/models/database.py`). */
+/** Alineado con backend `CandidateStatus` (ver `backend/app/models/database.py`). */
 export type CandidateStatus =
   | 'new'
   | 'in_progress'
@@ -16,9 +16,6 @@ export type CandidateStatus =
   | 'hard_disq'
   | 'waitlist'
   | 'abandoned';
-
-/** Legacy name — mismo tipo que estados de candidato. */
-export type LoanStatus = CandidateStatus;
 
 export const CANDIDATE_STATUS_ORDER: CandidateStatus[] = [
   'new',
@@ -50,7 +47,34 @@ export const CANDIDATE_STATUS_LABELS: Record<CandidateStatus, string> = {
   abandoned: 'Abandonado',
 };
 
-/** Color de barra / punto en gráficos del dashboard */
+/** Texto largo para tooltips / ayuda contextual. */
+export const CANDIDATE_STATUS_DESCRIPTIONS: Record<CandidateStatus, string> = {
+  new:
+    'Registro creado en el funnel; el candidato ha iniciado la conversación de screening con la IA.',
+  in_progress:
+    'Screening conversacional activo: el agente captura requisitos y datos del repartidor.',
+  hard_filter:
+    'Se evalúan requisitos obligatorios (licencia, ciudad de cobertura, etc.).',
+  sentiment_analysis:
+    'Se analiza la transcripción del chat (tono, frustración u otras señales) antes de seguir el pipeline.',
+  listwise:
+    'Mini torneos: el modelo realiza mini torneos de 5 candidatos para obtener un ranking parcial.',
+  plackett_luce:
+    'Fusiona rankings parciales, estimando utilidades estadísticas latentes que maximizan la posibilidad de obtener un ranking global con mejor accuracy.',
+  qualified:
+    'Supera los filtros del funnel y puede pasar a reclutamiento / siguiente paso operativo.',
+  qualified_flagged:
+    'Calificado pero con incertidumbre o riesgo (por ejemplo horario dudoso o señales de frustración).',
+  soft_disq:
+    'No encaja en este momento por motivos reversibles (horario, fecha de inicio, perfil); puede reevaluarse.',
+  hard_disq:
+    'No cumple requisitos duros no negociables (por ejemplo sin carnet o fuera de zona de cobertura).',
+  waitlist:
+    'Fuera de cobertura o timing actual; queda en espera para cuando haya vacantes u oportunidad.',
+  abandoned:
+    'El candidato dejó de responder tras la secuencia de reenganche; proceso detenido.',
+};
+
 export const CANDIDATE_STATUS_CHART_COLORS: Record<CandidateStatus, string> = {
   new: 'bg-yellow-500',
   in_progress: 'bg-blue-400',
@@ -72,9 +96,9 @@ export type DocumentType = 'DNI' | 'CURP' | 'CC' | 'CPF';
 
 export interface BankingInfo {
   provider_name?: string;
-  provider?: string; // backward compatibility
+  provider?: string;
   credit_score?: number | null;
-  loan_score?: number | null; // backward compatibility
+  loan_score?: number | null;
   total_debt?: number | string | null;
   active_loans?: number;
   payment_history?: string | null;
@@ -86,10 +110,10 @@ export interface BankingInfo {
   available_credit?: number | string | null;
   account_age_months?: number | null;
   monthly_obligations?: number | string | null;
-  [key: string]: any; // Allow additional fields
+  [key: string]: unknown;
 }
 
-export interface Loan {
+export interface Candidate {
   id: string;
   country_code: CountryCode;
   document_type: DocumentType;
@@ -98,16 +122,16 @@ export interface Loan {
   amount_requested: number;
   currency: string;
   monthly_income: number;
-  status: LoanStatus;
+  status: CandidateStatus;
   risk_score: number | null;
   requires_review: boolean;
   banking_info: BankingInfo | null;
   extra_data?: {
-    risk_factors?: Record<string, any>;
+    risk_factors?: Record<string, unknown>;
     validation_warnings?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  metadata?: Record<string, any>; // backward compatibility
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   processed_at?: string | null;
@@ -115,7 +139,7 @@ export interface Loan {
   reviewed_by_id?: string | null;
 }
 
-export interface LoanCreateRequest {
+export interface CandidateCreateRequest {
   country_code: CountryCode;
   document_type: DocumentType;
   document_number: string;
@@ -124,53 +148,55 @@ export interface LoanCreateRequest {
   monthly_income: number;
 }
 
-export interface LoanStatusUpdate {
-  status: LoanStatus;
+export interface CandidateStatusUpdate {
+  status: CandidateStatus;
   reason?: string;
 }
 
-export interface LoanStatusHistory {
+/** Respuesta de GET .../history — `loan_id` es el nombre del campo en la API. */
+export interface CandidateStatusHistory {
   id: number;
   loan_id: string;
-  previous_status: LoanStatus | null;
-  new_status: LoanStatus;
+  previous_status: CandidateStatus | null;
+  new_status: CandidateStatus;
   reason: string | null;
   changed_by_id: string | null;
   created_at: string;
 }
 
-export interface LoanFilters {
+export interface CandidateFilters {
   country_code: CountryCode | null;
-  status: LoanStatus | null;
+  status: CandidateStatus | null;
   requires_review: boolean | null;
   page: number;
   page_size: number;
 }
 
-export interface LoanPagination {
+export interface CandidatePagination {
   total: number;
   page: number;
   page_size: number;
   total_pages: number;
 }
 
-export interface LoanStatistics {
+/** Estadísticas — nombres de campos según respuesta de la API (`total_loans`, etc.). */
+export interface CandidateStatistics {
   total_loans: number;
-  total_count?: number; // backward compatibility with older API shape
-  by_status: Record<LoanStatus, number>;
+  total_count?: number;
+  by_status: Record<CandidateStatus, number>;
   by_country: Record<CountryCode, number>;
   total_amount_requested: number;
-  average_amount?: number; // currently not used in UI
+  average_amount?: number;
   average_risk_score: number | null;
   pending_review_count: number;
 }
 
-export interface LoansState {
-  items: Loan[];
-  selectedLoan: Loan | null;
-  statistics: LoanStatistics | null;
+export interface CandidatesState {
+  items: Candidate[];
+  selectedCandidate: Candidate | null;
+  statistics: CandidateStatistics | null;
   loading: boolean;
   error: string | null;
-  filters: LoanFilters;
-  pagination: LoanPagination;
+  filters: CandidateFilters;
+  pagination: CandidatePagination;
 }

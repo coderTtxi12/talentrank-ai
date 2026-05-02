@@ -1,12 +1,12 @@
 /**
- * Status timeline component showing loan history.
+ * Línea de tiempo de cambios de estado.
  */
-import type { LoanStatusHistory } from '@/types/loan';
-import { CANDIDATE_STATUS_LABELS, CANDIDATE_STATUS_CHART_COLORS } from '@/types/loan';
+import type { CandidateStatusHistory } from '@/types/candidate';
+import { CANDIDATE_STATUS_LABELS, CANDIDATE_STATUS_CHART_COLORS } from '@/types/candidate';
 import clsx from 'clsx';
 
 interface StatusTimelineProps {
-  history: LoanStatusHistory[];
+  history: CandidateStatusHistory[];
   loading?: boolean;
 }
 

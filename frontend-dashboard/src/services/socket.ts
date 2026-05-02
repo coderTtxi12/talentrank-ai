@@ -20,6 +20,7 @@ export const connectSocket = (): Socket => {
   }
 
   const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+  // Namespace del servidor (suele ser `/loans` si el backend no lo ha renombrado).
   const socketNamespace = import.meta.env.VITE_SOCKET_NAMESPACE || '/loans';
   const socketPath = import.meta.env.VITE_SOCKET_PATH || '/socket.io';
 
@@ -103,17 +104,21 @@ export const unsubscribeFromCountry = (countryCode: string): void => {
   }
 };
 
-export const subscribeToLoan = (loanId: string): void => {
+/** Suscripción a actualizaciones de un registro (payload API: `loan_id`). */
+export const subscribeToLoan = (recordId: string): void => {
   if (socket?.connected) {
-    socket.emit('subscribe_loan', { loan_id: loanId });
+    socket.emit('subscribe_loan', { loan_id: recordId });
   }
 };
 
-export const unsubscribeFromLoan = (loanId: string): void => {
+export const unsubscribeFromLoan = (recordId: string): void => {
   if (socket?.connected) {
-    socket.emit('unsubscribe_loan', { loan_id: loanId });
+    socket.emit('unsubscribe_loan', { loan_id: recordId });
   }
 };
+
+export const subscribeToCandidateRoom = subscribeToLoan;
+export const unsubscribeFromCandidateRoom = unsubscribeFromLoan;
 
 export default {
   getSocket,
@@ -125,4 +130,6 @@ export default {
   unsubscribeFromCountry,
   subscribeToLoan,
   unsubscribeFromLoan,
+  subscribeToCandidateRoom,
+  unsubscribeFromCandidateRoom,
 };

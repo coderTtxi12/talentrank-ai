@@ -1,11 +1,11 @@
 /**
- * Modal for changing loan status.
+ * Modal para cambiar el estado del candidato.
  */
 import { useState } from 'react';
 import { Modal, Button, Select } from '@/components/ui';
 import Input from '@/components/ui/Input';
-import type { LoanStatus, CandidateStatus } from '@/types/loan';
-import { CANDIDATE_STATUS_LABELS } from '@/types/loan';
+import type { CandidateStatus } from '@/types/candidate';
+import { CANDIDATE_STATUS_LABELS } from '@/types/candidate';
 import {
   MODAL_STATUS_TITLE,
   MODAL_CURRENT_STATUS,
@@ -23,8 +23,8 @@ import {
 interface StatusChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (newStatus: LoanStatus, reason: string) => Promise<void>;
-  currentStatus: LoanStatus;
+  onConfirm: (newStatus: CandidateStatus, reason: string) => Promise<void>;
+  currentStatus: CandidateStatus;
   loading?: boolean;
 }
 
@@ -83,7 +83,7 @@ const StatusChangeModal = ({
   currentStatus,
   loading = false,
 }: StatusChangeModalProps) => {
-  const [newStatus, setNewStatus] = useState<LoanStatus | ''>('');
+  const [newStatus, setNewStatus] = useState<CandidateStatus | ''>('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
 
@@ -104,7 +104,7 @@ const StatusChangeModal = ({
     }
 
     setError('');
-    await onConfirm(newStatus as LoanStatus, reason);
+    await onConfirm(newStatus as CandidateStatus, reason);
     handleClose();
   };
 
@@ -132,7 +132,7 @@ const StatusChangeModal = ({
             <Select
               label={MODAL_NEW_STATUS}
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value as LoanStatus)}
+              onChange={(e) => setNewStatus(e.target.value as CandidateStatus)}
               options={availableStatuses.map((status) => ({
                 value: status,
                 label: statusLabels[status],

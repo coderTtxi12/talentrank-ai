@@ -5,11 +5,10 @@ import clsx from 'clsx';
 import {
   CANDIDATE_STATUS_LABELS,
   type CandidateStatus,
-  type LoanStatus,
-} from '@/types/loan';
+} from '@/types/candidate';
 
 interface StatusBadgeProps {
-  status: LoanStatus;
+  status: CandidateStatus;
   size?: 'sm' | 'md' | 'lg';
 }
 
