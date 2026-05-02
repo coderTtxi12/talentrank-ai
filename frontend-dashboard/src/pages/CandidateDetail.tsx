@@ -11,7 +11,12 @@ import {
   clearSelectedCandidate,
 } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
-import { CandidateInfo, StatusTimeline, StatusChangeModal } from '@/components/candidates';
+import {
+  CandidateInfo,
+  StatusTimeline,
+  StatusChangeModal,
+  ConversationHistoryModal,
+} from '@/components/candidates';
 import type { CandidateStatus, CandidateStatusHistory } from '@/types/candidate';
 import {
   DETAIL_TITLE,
@@ -22,6 +27,7 @@ import {
   DETAIL_CARD_INFO,
   DETAIL_CARD_HISTORY,
   DETAIL_BTN_CHANGE_STATUS,
+  DETAIL_BTN_CONVERSATION,
   DETAIL_NAV_SHORT,
 } from '@/constants/branding';
 
@@ -32,6 +38,7 @@ const CandidateDetail = () => {
   const { selectedCandidate, loading, error } = useAppSelector((state) => state.candidates);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showConversationModal, setShowConversationModal] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [history, setHistory] = useState<CandidateStatusHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -122,7 +129,10 @@ const CandidateDetail = () => {
           <h1 className="text-2xl font-bold text-gray-900">{DETAIL_TITLE}</h1>
           <p className="text-gray-600 font-mono text-sm">{selectedCandidate.id}</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Button variant="secondary" onClick={() => setShowConversationModal(true)}>
+            {DETAIL_BTN_CONVERSATION}
+          </Button>
           <Button onClick={() => setShowStatusModal(true)}>
             {DETAIL_BTN_CHANGE_STATUS}
           </Button>
@@ -149,6 +159,12 @@ const CandidateDetail = () => {
         onConfirm={handleStatusChange}
         currentStatus={selectedCandidate.status}
         loading={statusLoading}
+      />
+
+      <ConversationHistoryModal
+        isOpen={showConversationModal}
+        onClose={() => setShowConversationModal(false)}
+        candidateId={selectedCandidate.id}
       />
     </div>
   );

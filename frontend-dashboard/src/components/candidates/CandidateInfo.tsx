@@ -1,15 +1,71 @@
 /**
  * Ficha de detalle de un candidato.
  */
-import type { Candidate, CountryCode } from '@/types/candidate';
+import {
+  SCREENING_AVAILABILITY_LABELS,
+  SCREENING_PREFERRED_SCHEDULE_LABELS,
+  type Candidate,
+  type CountryCode,
+  type ScreeningAvailability,
+  type ScreeningPreferredSchedule,
+} from '@/types/candidate';
 import {
   INFO_STATUS_LABEL,
   INFO_RISK_LABEL,
   INFO_REVIEW_BANNER,
   INFO_SECTION_APPLICANT,
   INFO_SECTION_AMOUNTS,
+  INFO_FULL_NAME,
+  INFO_SECTION_TIMELINE,
+  INFO_SECTION_BANKING,
+  INFO_SECTION_RISK,
+  TABLE_COL_COUNTRY,
+  TABLE_COL_DRIVERS_LICENSE,
+  TABLE_COL_CITY_ZONE,
+  TABLE_COL_AVAILABILITY,
+  TABLE_COL_PREFERRED_SCHEDULE,
+  TABLE_COL_EXPERIENCE_YEARS,
+  TABLE_COL_PLATFORMS,
+  TABLE_COL_START_DATE,
 } from '@/constants/branding';
 import { StatusBadge } from '@/components/candidates';
+import SentimentSignalsSection, {
+  shouldShowSentimentAnalysis,
+} from '@/components/candidates/SentimentSignalsSection';
+
+const EM_DASH = '—';
+
+function formatAvailability(value: string | null | undefined): string {
+  if (value == null || value === '') return EM_DASH;
+  return SCREENING_AVAILABILITY_LABELS[value as ScreeningAvailability] ?? value;
+}
+
+function formatPreferredSchedule(value: string | null | undefined): string {
+  if (value == null || value === '') return EM_DASH;
+  return SCREENING_PREFERRED_SCHEDULE_LABELS[value as ScreeningPreferredSchedule] ?? value;
+}
+
+function formatExperienceYears(n: number | null | undefined): string {
+  if (n == null) return EM_DASH;
+  return n === 1 ? '1 año' : `${n} años`;
+}
+
+function formatStartDate(iso: string | null | undefined): string {
+  if (iso == null || iso === '') return EM_DASH;
+  const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatDriversLicense(value: boolean | null | undefined): string {
+  if (value === true) return 'Sí';
+  if (value === false) return 'No';
+  return EM_DASH;
+}
 
 interface CandidateInfoProps {
   candidate: Candidate;
@@ -22,14 +78,14 @@ const countries: Record<CountryCode, { name: string; flag: string }> = {
 
 const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: currency || 'USD',
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -39,9 +95,11 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
   };
 
   const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-900">{children}</span>
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 py-2 border-b border-gray-100 last:border-0">
+      <span className="text-sm text-gray-500 shrink-0">{label}</span>
+      <span className="text-sm font-medium text-gray-900 text-left sm:text-right min-w-0 sm:max-w-[65%] break-words">
+        {children}
+      </span>
     </div>
   );
 
@@ -76,41 +134,64 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
           {INFO_SECTION_APPLICANT}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Full Name">{candidate.full_name}</InfoRow>
-          <InfoRow label="Document Type">{candidate.document_type}</InfoRow>
-          <InfoRow label="Document Number">
-            <span className="font-mono">{candidate.document_number}</span>
+          <InfoRow label={TABLE_COL_COUNTRY}>
+            <span className="inline-flex items-center justify-end gap-2">
+              <span className="text-lg">{countries[candidate.country_code]?.flag}</span>
+              {countries[candidate.country_code]?.name ?? candidate.country_code}
+            </span>
           </InfoRow>
+          <InfoRow label={INFO_FULL_NAME}>{candidate.full_name || EM_DASH}</InfoRow>
+          <InfoRow label={TABLE_COL_DRIVERS_LICENSE}>
+            {formatDriversLicense(candidate.drivers_license)}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_CITY_ZONE}>
+            {candidate.city_zone?.trim() ? candidate.city_zone.trim() : EM_DASH}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_AVAILABILITY}>
+            {formatAvailability(candidate.availability)}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_PREFERRED_SCHEDULE}>
+            {formatPreferredSchedule(candidate.preferred_schedule)}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_EXPERIENCE_YEARS}>
+            {formatExperienceYears(candidate.experience_years)}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_PLATFORMS}>
+            {candidate.platforms?.length ? candidate.platforms.join(', ') : EM_DASH}
+          </InfoRow>
+          <InfoRow label={TABLE_COL_START_DATE}>{formatStartDate(candidate.start_date)}</InfoRow>
         </div>
       </div>
 
-      {/* Importes / país */}
+      {/* Importes */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
           {INFO_SECTION_AMOUNTS}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Country">
-            <span className="flex items-center gap-2">
-              <span className="text-lg">{countries[candidate.country_code]?.flag}</span>
-              {countries[candidate.country_code]?.name}
-            </span>
-          </InfoRow>
-          <InfoRow label="Amount Requested">
+          <InfoRow label="Importe solicitado">
             {formatCurrency(candidate.amount_requested, candidate.currency)}
           </InfoRow>
-          <InfoRow label="Currency">{candidate.currency}</InfoRow>
-          <InfoRow label="Monthly Income">
+          <InfoRow label="Divisa">{candidate.currency}</InfoRow>
+          <InfoRow label="Ingresos mensuales declarados">
             {formatCurrency(candidate.monthly_income, candidate.currency)}
           </InfoRow>
         </div>
       </div>
 
+      {shouldShowSentimentAnalysis(candidate) && (
+        <SentimentSignalsSection
+          sentiment={candidate.sentiment}
+          sentimentConfidence={candidate.sentiment_confidence}
+          signals={candidate.sentiment_signals}
+        />
+      )}
+
       {/* Banking Information */}
       {candidate.banking_info && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-            Banking Information
+            {INFO_SECTION_BANKING}
           </h3>
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             {(candidate.banking_info.provider_name || candidate.banking_info.provider) && (
@@ -204,7 +285,7 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
       {candidate.extra_data && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-            Risk Analysis
+            {INFO_SECTION_RISK}
           </h3>
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             {candidate.extra_data.risk_factors && Object.keys(candidate.extra_data.risk_factors).length > 0 && (
@@ -245,13 +326,13 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
       {/* Timestamps */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-          Timeline
+          {INFO_SECTION_TIMELINE}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Created">{formatDate(candidate.created_at)}</InfoRow>
-          <InfoRow label="Last Updated">{formatDate(candidate.updated_at)}</InfoRow>
+          <InfoRow label="Alta">{formatDate(candidate.created_at)}</InfoRow>
+          <InfoRow label="Última actualización">{formatDate(candidate.updated_at)}</InfoRow>
           {candidate.processed_at && (
-            <InfoRow label="Processed">{formatDate(candidate.processed_at)}</InfoRow>
+            <InfoRow label="Procesado">{formatDate(candidate.processed_at)}</InfoRow>
           )}
         </div>
       </div>

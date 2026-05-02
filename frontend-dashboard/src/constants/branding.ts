@@ -65,6 +65,14 @@ export const DETAIL_NOT_FOUND_DESC =
 export const DETAIL_CARD_INFO = 'Datos del candidato';
 export const DETAIL_CARD_HISTORY = 'Historial de estado';
 export const DETAIL_BTN_CHANGE_STATUS = 'Cambiar estado';
+export const DETAIL_BTN_CONVERSATION = 'Ver conversación';
+export const DETAIL_CONVERSATION_TITLE = 'Historial de conversación';
+export const DETAIL_CONVERSATION_EMPTY =
+  'No hay mensajes de screening guardados para este candidato.';
+export const DETAIL_CONVERSATION_LOAD_MORE = 'Cargar más';
+export const DETAIL_CONVERSATION_LOADING = 'Cargando mensajes…';
+export const DETAIL_CONVERSATION_ROLE_USER = 'Candidato';
+export const DETAIL_CONVERSATION_ROLE_ASSISTANT = 'Asistente';
 
 export const FORM_CARD_COUNTRY_TITLE = 'País';
 export const FORM_CARD_COUNTRY_SUB = 'Selecciona el país del candidato';
@@ -97,6 +105,15 @@ export const INFO_REVIEW_BANNER =
   'Este candidato requiere revisión manual';
 export const INFO_SECTION_APPLICANT = 'Datos del candidato';
 export const INFO_SECTION_AMOUNTS = 'Importes declarados';
+export const INFO_FULL_NAME = 'Nombre completo';
+export const INFO_SECTION_TIMELINE = 'Cronología';
+export const INFO_SECTION_BANKING = 'Información bancaria';
+export const INFO_SECTION_RISK = 'Análisis de riesgo';
+export const INFO_SECTION_SENTIMENT = 'Análisis de sentimientos';
+export const INFO_SECTION_SENTIMENT_HINT =
+  'Automático sobre la conversación de screening (IA)';
+export const INFO_SENTIMENT_CLASSIFICATION = 'Clasificación de sentimiento';
+export const INFO_SENTIMENT_CONFIDENCE = 'Confianza del modelo';
 
 export const MODAL_STATUS_TITLE = 'Cambiar estado del candidato';
 export const MODAL_CURRENT_STATUS = 'Estado actual';
@@ -123,4 +140,5 @@ export const ERR_FETCH_ONE = 'No se pudo cargar el candidato';
 export const ERR_CREATE = 'No se pudo registrar el candidato';
 export const ERR_UPDATE_STATUS = 'No se pudo actualizar el estado';
 export const ERR_HISTORY = 'No se pudo cargar el historial';
+export const ERR_CONVERSATION = 'No se pudo cargar la conversación';
 export const ERR_STATS = 'No se pudieron cargar las estadísticas';

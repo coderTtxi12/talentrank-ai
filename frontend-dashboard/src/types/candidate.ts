@@ -154,6 +154,12 @@ export interface Candidate {
   risk_score: number | null;
   requires_review: boolean;
   banking_info: BankingInfo | null;
+  /** `sentiment_results.sentiment` (último por fecha); solo en GET detalle. */
+  sentiment?: string | null;
+  /** `sentiment_results.confidence`, habitualmente 0–1. */
+  sentiment_confidence?: number | null;
+  /** `sentiment_results.signals` (último por fecha); solo en GET detalle. */
+  sentiment_signals?: Record<string, unknown> | null;
   extra_data?: {
     risk_factors?: Record<string, unknown>;
     validation_warnings?: string[];
@@ -201,6 +207,21 @@ export interface CandidateFilters {
   page_size: number;
   /** Número de página solo para la UI (1-based). */
   page: number;
+}
+
+/** Mensaje del screening (usuario / asistente). */
+export interface ConversationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+/** GET /candidates/:id/conversation/messages */
+export interface ConversationMessagesResponse {
+  items: ConversationMessage[];
+  next_cursor: string | null;
+  limit: number;
 }
 
 /** Respuesta GET /api/v1/candidates (cursor). */

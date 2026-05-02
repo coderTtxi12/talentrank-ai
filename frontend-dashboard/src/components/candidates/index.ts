@@ -9,3 +9,4 @@ export { default as CandidateForm } from './CandidateForm';
 export { default as CandidateInfo } from './CandidateInfo';
 export { default as StatusTimeline } from './StatusTimeline';
 export { default as StatusChangeModal } from './StatusChangeModal';
+export { default as ConversationHistoryModal } from './ConversationHistoryModal';

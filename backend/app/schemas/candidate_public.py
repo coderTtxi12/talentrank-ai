@@ -7,7 +7,7 @@ where the screening schema does not yet duplicate legacy loan-style columns.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -34,6 +34,16 @@ class CandidatePublic(BaseModel):
     risk_score: Optional[float] = None
     requires_review: bool = False
     banking_info: Optional[dict] = None
+    # Latest sentiment_results row (GET one candidate): classification + confidence + signals JSON.
+    sentiment: Optional[str] = Field(
+        default=None,
+        description="sentiment_results.sentiment enum value (e.g. positive, neutral).",
+    )
+    sentiment_confidence: Optional[float] = Field(
+        default=None,
+        description="sentiment_results.confidence (typically 0–1).",
+    )
+    sentiment_signals: Optional[Dict[str, Any]] = None
     extra_data: Optional[dict] = None
     metadata: Optional[dict] = None
     created_at: datetime

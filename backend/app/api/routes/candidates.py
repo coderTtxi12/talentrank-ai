@@ -15,6 +15,7 @@ from app.models.database import Candidate, CandidateStatus, Language
 from app.schemas.candidate_create import CandidateCreateRequest
 from app.schemas.candidate_public import CandidatePublic, CandidatesCursorPage
 from app.schemas.candidate_status import PatchCandidateStatusRequest
+from app.schemas.conversation_messages import ConversationMessagesPage
 from app.services.candidate_list import (
     candidate_to_public,
     compute_statistics,
@@ -22,6 +23,7 @@ from app.services.candidate_list import (
     list_candidates_cursor_page,
     list_recent_candidates,
 )
+from app.services.conversation_messages import list_conversation_messages_for_candidate
 
 logger = get_logger(__name__)
 
@@ -98,6 +100,38 @@ def create_candidate(body: CandidateCreateRequest, db: Session = Depends(get_db)
 )
 def candidates_statistics(db: Session = Depends(get_db)) -> dict:
     return compute_statistics(db)
+
+
+@router.get(
+    "/{candidate_id}/conversation/messages",
+    response_model=ConversationMessagesPage,
+    summary="Screening chat transcript (cursor pagination)",
+    description=(
+        "Messages from all conversations linked to this candidate, oldest first. "
+        "Use `next_cursor` from the previous response to load the following chunk."
+    ),
+)
+def candidate_conversation_messages(
+    candidate_id: str,
+    cursor: Optional[str] = Query(None, description="Opaque cursor from the previous page."),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> ConversationMessagesPage:
+    try:
+        uid = uuid.UUID(candidate_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid id",
+        ) from exc
+
+    row = db.get(Candidate, uid)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    return list_conversation_messages_for_candidate(
+        db, candidate_id=uid, limit=limit, cursor=cursor
+    )
 
 
 @router.get(

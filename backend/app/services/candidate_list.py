@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import base64
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.database import Availability, Candidate, CandidateStatus, Language, PreferredSchedule
+from app.models.database import (
+    Availability,
+    Candidate,
+    CandidateStatus,
+    Conversation,
+    Language,
+    PreferredSchedule,
+    SentimentResult,
+)
 from app.schemas.candidate_public import CandidatePublic, CandidatesCursorPage
 
 
@@ -164,6 +173,19 @@ def list_candidates_cursor_page(
     )
 
 
+def _latest_sentiment_result_for_candidate(
+    db: Session, candidate_uuid: uuid.UUID
+) -> Optional[SentimentResult]:
+    stmt = (
+        select(SentimentResult)
+        .join(Conversation, SentimentResult.conversation_id == Conversation.id)
+        .where(Conversation.candidate_id == candidate_uuid)
+        .order_by(SentimentResult.created_at.desc())
+        .limit(1)
+    )
+    return db.scalar(stmt)
+
+
 def list_recent_candidates(db: Session, *, limit: int) -> list[CandidatePublic]:
     stmt = (
         select(Candidate)
@@ -175,8 +197,6 @@ def list_recent_candidates(db: Session, *, limit: int) -> list[CandidatePublic]:
 
 
 def get_candidate_by_id(db: Session, candidate_id: str) -> Optional[CandidatePublic]:
-    import uuid
-
     try:
         uid = uuid.UUID(candidate_id)
     except ValueError:
@@ -184,7 +204,19 @@ def get_candidate_by_id(db: Session, candidate_id: str) -> Optional[CandidatePub
     row = db.get(Candidate, uid)
     if row is None:
         return None
-    return candidate_to_public(row)
+    pub = candidate_to_public(row)
+    sr = _latest_sentiment_result_for_candidate(db, row.id)
+    if sr is None:
+        return pub
+    sentiment_val = sr.sentiment.value if hasattr(sr.sentiment, "value") else str(sr.sentiment)
+    updates: dict[str, Any] = {
+        "sentiment": sentiment_val,
+        "sentiment_confidence": float(sr.confidence),
+    }
+    sig_raw = sr.signals
+    if isinstance(sig_raw, dict) and len(sig_raw) > 0:
+        updates["sentiment_signals"] = dict(sig_raw)
+    return pub.model_copy(update=updates)
 
 
 def compute_statistics(db: Session) -> dict[str, Any]:
