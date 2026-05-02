@@ -23,6 +23,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Registrar `/api/v1` antes que `/api`: si no, `/api/v1/candidates` coincide con
+      // `/api` y el rewrite duplica el prefijo → `/api/v1/v1/...` (404 en FastAPI).
+      '/api/v1': {
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api': {
         target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,

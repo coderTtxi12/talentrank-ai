@@ -4,8 +4,12 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchCandidates, fetchStatistics, setFilters } from '@/store/slices/candidatesSlice';
-import { Card } from '@/components/ui';
+import {
+  fetchStatistics,
+  fetchMoreDashboardRecentWs,
+  bootstrapDashboardRecent,
+} from '@/store/slices/candidatesSlice';
+import { Card, Button } from '@/components/ui';
 import { StatusBadge } from '@/components/candidates';
 import { CandidateStatusTooltip } from '@/components/candidates/CandidateStatusTooltip';
 import {
@@ -27,6 +31,7 @@ import {
   DASH_RECENT_SUBTITLE,
   DASH_EMPTY,
   DASH_VIEW_ALL,
+  DASH_RECENT_LOAD_MORE,
   TABLE_COL_COUNTRY,
   TABLE_COL_NAME,
   TABLE_COL_AMOUNT,
@@ -48,20 +53,17 @@ const statuses: { status: CandidateStatus; label: string; color: string }[] =
 
 const Dashboard = () => {
   const dispatch = useAppDispatch();
-  const { items, statistics, loading } = useAppSelector((state) => state.candidates);
+  const {
+    dashboardRecent,
+    statistics,
+    statisticsLoading,
+    recentHydrated,
+    recentNextCursor,
+  } = useAppSelector((state) => state.candidates);
 
   useEffect(() => {
-    // Clear all filters when visiting dashboard
-    dispatch(setFilters({ 
-      country_code: null, 
-      status: null, 
-      requires_review: null, 
-      page: 1 
-    }));
-    
-    // Estadísticas y muestra reciente de candidatos
     dispatch(fetchStatistics(undefined));
-    dispatch(fetchCandidates({ page: 1, page_size: 5 }));
+    dispatch(bootstrapDashboardRecent(undefined));
   }, [dispatch]);
 
   const formatCurrency = (amount: number) => {
@@ -90,7 +92,9 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+      <div
+        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 transition-opacity ${statisticsLoading ? 'opacity-70' : ''}`}
+      >
         {/* Total candidatos */}
         <Card className="bg-gradient-to-br from-primary-500 to-primary-600 text-white border-0">
           <div className="flex items-center justify-between">
@@ -190,12 +194,19 @@ const Dashboard = () => {
       </div>
 
       {/* Candidatos recientes */}
-      <Card title={DASH_RECENT_TITLE} subtitle={DASH_RECENT_SUBTITLE}>
-        {loading ? (
+      <Card
+        title={DASH_RECENT_TITLE}
+        subtitle={
+          recentHydrated
+            ? `${DASH_RECENT_SUBTITLE} · ${dashboardRecent.length} mostrados en esta vista${recentNextCursor ? ' · hay más vía WebSocket' : ''}`
+            : DASH_RECENT_SUBTITLE
+        }
+      >
+        {!recentHydrated ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
           </div>
-        ) : items.length === 0 ? (
+        ) : dashboardRecent.length === 0 ? (
           <p className="text-gray-500 text-center py-8">{DASH_EMPTY}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -220,7 +231,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {items.slice(0, 5).map((candidateRow) => (
+                {dashboardRecent.map((candidateRow) => (
                   <tr
                     key={candidateRow.id}
                     className="border-b border-gray-100 hover:bg-gray-50"
@@ -253,6 +264,18 @@ const Dashboard = () => {
             </table>
           </div>
         )}
+        {recentHydrated && recentNextCursor ? (
+          <div className="mt-4 flex justify-center border-t border-gray-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void dispatch(fetchMoreDashboardRecentWs())}
+            >
+              {DASH_RECENT_LOAD_MORE}
+            </Button>
+          </div>
+        ) : null}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <Link
             to="/candidates"

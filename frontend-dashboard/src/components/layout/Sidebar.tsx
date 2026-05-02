@@ -14,6 +14,7 @@ import {
   FILTER_BY_COUNTRY,
   FILTER_BY_STATUS,
   CLEAR_FILTERS,
+  SIDEBAR_CANDIDATES_TOTAL,
 } from '@/constants/branding';
 
 interface NavItem {
@@ -120,31 +121,40 @@ const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { sidebarOpen } = useAppSelector((state) => state.ui);
-  const { filters } = useAppSelector((state) => state.candidates);
+  const { filters, statistics } = useAppSelector((state) => state.candidates);
+  const candidateTotal = statistics?.total_loans ?? statistics?.total_count ?? 0;
 
   const handleCountryFilter = (code: CountryCode) => {
     const newCountryCode = filters.country_code === code ? null : code;
-    dispatch(setFilters({ 
+    dispatch(setFilters({
       country_code: newCountryCode,
-      page: 1 
+      cursor: null,
+      page: 1,
+      page_size: 20,
     }));
     navigate('/candidates');
-    dispatch(fetchCandidates({ 
+    dispatch(fetchCandidates({
       country_code: newCountryCode || undefined,
-      page: 1 
+      cursor: null,
+      page: 1,
+      page_size: 20,
     }));
   };
 
   const handleStatusFilter = (status: CandidateStatus) => {
     const newStatus = filters.status === status ? null : status;
-    dispatch(setFilters({ 
+    dispatch(setFilters({
       status: newStatus,
-      page: 1 
+      cursor: null,
+      page: 1,
+      page_size: 20,
     }));
     navigate('/candidates');
-    dispatch(fetchCandidates({ 
+    dispatch(fetchCandidates({
       status: newStatus || undefined,
-      page: 1 
+      cursor: null,
+      page: 1,
+      page_size: 20,
     }));
   };
 
@@ -156,23 +166,30 @@ const Sidebar = () => {
         {/* Main navigation */}
         <nav className="space-y-1">
           {navigation.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/'}
-                className={({ isActive }) =>
-                  clsx(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  )
-                }
-              >
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) =>
+                clsx(
+                  'flex flex-col gap-0.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                )
+              }
+            >
+              <span className="flex items-center gap-3">
                 {item.icon}
                 {item.name}
-              </NavLink>
-            ))}
+              </span>
+              {item.path === '/candidates' && statistics != null && candidateTotal > 0 && (
+                <span className="pl-8 text-xs font-normal text-gray-500">
+                  {SIDEBAR_CANDIDATES_TOTAL(candidateTotal)}
+                </span>
+              )}
+            </NavLink>
+          ))}
         </nav>
 
         {/* Divider */}

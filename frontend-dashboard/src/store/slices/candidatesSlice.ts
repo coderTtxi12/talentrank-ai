@@ -2,6 +2,7 @@
  * Estado Redux del listado y detalle de candidatos (API `/loans`).
  */
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import axios from 'axios';
 import type {
   Candidate,
   CandidateCreateRequest,
@@ -9,8 +10,10 @@ import type {
   CandidateFilters,
   CandidateStatistics,
   CandidateStatus,
+  CandidatesCursorResponse,
 } from '@/types/candidate';
 import { api } from '@/services/api';
+import { getSocket } from '@/services/socket';
 import {
   ERR_FETCH_LIST,
   ERR_FETCH_ONE,
@@ -20,16 +23,46 @@ import {
   ERR_STATS,
 } from '@/constants/branding';
 
+const DASHBOARD_RECENT_WS_LIMIT = 12;
+
+/** Petición cancelada o deduplicada (StrictMode, dispatch repetido). */
+const THUNK_SUPERSEDED = '__thunkSuperseded__';
+
+let bootstrapRecentInFlightKey: string | null = null;
+let bootstrapRecentAbortController: AbortController | null = null;
+
+let statisticsInFlightKey: string | null = null;
+let statisticsAbortController: AbortController | null = null;
+
+const BOOTSTRAP_RECENT_QUERY_KEY = `recent|${DASHBOARD_RECENT_WS_LIMIT}`;
+const STATISTICS_FETCH_KEY = 'statistics';
+
+let listFetchInFlightKey: string | null = null;
+let listFetchAbortController: AbortController | null = null;
+
+function listFetchKey(f: CandidateFilters): string {
+  return [
+    f.country_code ?? '',
+    f.status ?? '',
+    f.requires_review === null ? '' : String(f.requires_review),
+    f.cursor ?? '',
+    String(f.page_size),
+  ].join('|');
+}
+
 const initialState: CandidatesState = {
   items: [],
+  dashboardRecent: [],
   selectedCandidate: null,
   statistics: null,
+  statisticsLoading: false,
   loading: false,
   error: null,
   filters: {
     country_code: null,
     status: null,
     requires_review: null,
+    cursor: null,
     page: 1,
     page_size: 20,
   },
@@ -38,33 +71,104 @@ const initialState: CandidatesState = {
     page: 1,
     page_size: 20,
     total_pages: 0,
+    next_cursor: null,
   },
+  recentNextCursor: null,
+  recentHydrated: false,
+  recentPageSize: DASHBOARD_RECENT_WS_LIMIT,
 };
+
+/** Si WebSocket no llega a tiempo, primera página vía HTTP (misma forma que el snapshot WS). */
+export const bootstrapDashboardRecent = createAsyncThunk(
+  'candidates/bootstrapRecent',
+  async (_, { rejectWithValue }) => {
+    const myKey = BOOTSTRAP_RECENT_QUERY_KEY;
+    const signal = bootstrapRecentAbortController!.signal;
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', String(DASHBOARD_RECENT_WS_LIMIT));
+      const response = await api.get<CandidatesCursorResponse>(
+        `/candidates?${params.toString()}`,
+        { signal }
+      );
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isCancel(error)) {
+        return rejectWithValue(THUNK_SUPERSEDED);
+      }
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        ERR_FETCH_LIST;
+      return rejectWithValue(message);
+    } finally {
+      if (bootstrapRecentInFlightKey === myKey) {
+        bootstrapRecentInFlightKey = null;
+      }
+    }
+  },
+  {
+    condition: () => {
+      if (bootstrapRecentInFlightKey === BOOTSTRAP_RECENT_QUERY_KEY) {
+        return false;
+      }
+      bootstrapRecentAbortController?.abort();
+      bootstrapRecentAbortController = new AbortController();
+      bootstrapRecentInFlightKey = BOOTSTRAP_RECENT_QUERY_KEY;
+      return true;
+    },
+  }
+);
 
 export const fetchCandidates = createAsyncThunk(
   'candidates/fetchList',
   async (filters: Partial<CandidateFilters> | undefined, { getState, rejectWithValue }) => {
-    try {
-      const state = getState() as { candidates: CandidatesState };
-      const currentFilters = { ...state.candidates.filters, ...filters };
+    const state = getState() as { candidates: CandidatesState };
+    const currentFilters = { ...state.candidates.filters, ...filters };
+    const myKey = listFetchKey(currentFilters);
+    const signal = listFetchAbortController!.signal;
 
+    try {
       const params = new URLSearchParams();
       if (currentFilters.country_code) params.append('country_code', currentFilters.country_code);
       if (currentFilters.status) params.append('status', currentFilters.status);
       if (currentFilters.requires_review !== null) {
         params.append('requires_review', String(currentFilters.requires_review));
       }
-      params.append('page', String(currentFilters.page));
-      params.append('page_size', String(currentFilters.page_size));
+      if (currentFilters.cursor) params.append('cursor', currentFilters.cursor);
+      params.append('limit', String(currentFilters.page_size));
+      if (!currentFilters.cursor) params.append('include_total', 'true');
 
-      const response = await api.get(`/loans?${params.toString()}`);
+      const response = await api.get<CandidatesCursorResponse>(
+        `/candidates?${params.toString()}`,
+        { signal }
+      );
       return response.data;
     } catch (error: unknown) {
+      if (axios.isCancel(error)) {
+        return rejectWithValue(THUNK_SUPERSEDED);
+      }
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         ERR_FETCH_LIST;
       return rejectWithValue(message);
+    } finally {
+      if (listFetchInFlightKey === myKey) {
+        listFetchInFlightKey = null;
+      }
     }
+  },
+  {
+    condition: (filters, { getState }) => {
+      const state = (getState() as { candidates: CandidatesState }).candidates;
+      const key = listFetchKey({ ...state.filters, ...filters });
+      if (listFetchInFlightKey === key) {
+        return false;
+      }
+      listFetchAbortController?.abort();
+      listFetchAbortController = new AbortController();
+      listFetchInFlightKey = key;
+      return true;
+    },
   }
 );
 
@@ -72,7 +176,7 @@ export const fetchCandidateById = createAsyncThunk(
   'candidates/fetchOne',
   async (candidateId: string, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/loans/${candidateId}`);
+      const response = await api.get(`/candidates/${candidateId}`);
       return response.data as Candidate;
     } catch (error: unknown) {
       const message =
@@ -87,7 +191,7 @@ export const createCandidate = createAsyncThunk(
   'candidates/create',
   async (payload: CandidateCreateRequest, { rejectWithValue }) => {
     try {
-      const response = await api.post('/loans', payload);
+      const response = await api.post('/candidates', payload);
       return response.data as Candidate;
     } catch (error: unknown) {
       console.error('Create candidate error:', {
@@ -136,7 +240,7 @@ export const updateCandidateStatus = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await api.patch(`/loans/${candidateId}/status`, { status, reason });
+      const response = await api.patch(`/candidates/${candidateId}/status`, { status, reason });
       return response.data as Candidate;
     } catch (error: unknown) {
       const message =
@@ -151,7 +255,7 @@ export const fetchCandidateHistory = createAsyncThunk(
   'candidates/fetchHistory',
   async (candidateId: string, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/loans/${candidateId}/history`);
+      const response = await api.get(`/candidates/${candidateId}/history`);
       return { candidateId, history: response.data };
     } catch (error: unknown) {
       const message =
@@ -162,21 +266,55 @@ export const fetchCandidateHistory = createAsyncThunk(
   }
 );
 
+/** Siguiente ventana de "recientes" vía Socket (`subscribe_recent` con cursor). */
+export const fetchMoreDashboardRecentWs = createAsyncThunk(
+  'candidates/fetchMoreRecentWs',
+  async (_, { getState }) => {
+    const state = getState() as { candidates: CandidatesState };
+    const { recentNextCursor, recentPageSize } = state.candidates;
+    const socket = getSocket();
+    if (!recentNextCursor || !socket?.connected) {
+      return;
+    }
+    socket.emit('subscribe_recent', {
+      limit: recentPageSize,
+      cursor: recentNextCursor,
+    });
+  }
+);
+
 export const fetchStatistics = createAsyncThunk(
   'candidates/fetchStatistics',
-  async (countryCode: string | undefined, { rejectWithValue }) => {
+  async (_countryCode: string | undefined, { rejectWithValue }) => {
+    const myKey = STATISTICS_FETCH_KEY;
+    const signal = statisticsAbortController!.signal;
     try {
-      const url = countryCode
-        ? `/loans/statistics?country_code=${countryCode}`
-        : '/loans/statistics';
-      const response = await api.get(url);
-      return response.data as CandidateStatistics;
+      const response = await api.get<CandidateStatistics>('/candidates/statistics', { signal });
+      return response.data;
     } catch (error: unknown) {
+      if (axios.isCancel(error)) {
+        return rejectWithValue(THUNK_SUPERSEDED);
+      }
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         ERR_STATS;
       return rejectWithValue(message);
+    } finally {
+      if (statisticsInFlightKey === myKey) {
+        statisticsInFlightKey = null;
+      }
     }
+  },
+  {
+    condition: () => {
+      if (statisticsInFlightKey === STATISTICS_FETCH_KEY) {
+        return false;
+      }
+      statisticsAbortController?.abort();
+      statisticsAbortController = new AbortController();
+      statisticsInFlightKey = STATISTICS_FETCH_KEY;
+      return true;
+    },
   }
 );
 
@@ -188,7 +326,7 @@ const candidatesSlice = createSlice({
       state.filters = { ...state.filters, ...action.payload };
     },
     clearFilters: (state) => {
-      state.filters = initialState.filters;
+      state.filters = { ...initialState.filters };
     },
     clearSelectedCandidate: (state) => {
       state.selectedCandidate = null;
@@ -206,40 +344,125 @@ const candidatesSlice = createSlice({
       }
     },
     candidateCreated: (state, action: PayloadAction<Candidate>) => {
-      state.items.unshift(action.payload);
-      state.pagination.total += 1;
+      const incoming = action.payload;
+      const exists = state.items.some((l) => l.id === incoming.id);
+      if (!exists) {
+        state.items.unshift(incoming);
+        state.pagination.total += 1;
+      }
+      state.dashboardRecent = [
+        incoming,
+        ...state.dashboardRecent.filter((c) => c.id !== incoming.id),
+      ];
     },
     statusChanged: (
       state,
-      action: PayloadAction<{ loan_id: string; old_status: string; new_status: string }>
+      action: PayloadAction<{
+        loan_id?: string;
+        candidate_id?: string;
+        old_status: string;
+        new_status: string;
+      }>
     ) => {
-      const { loan_id, new_status } = action.payload;
-      const index = state.items.findIndex((l) => l.id === loan_id);
+      const id = action.payload.candidate_id ?? action.payload.loan_id;
+      if (!id) return;
+      const { new_status } = action.payload;
+      const index = state.items.findIndex((l) => l.id === id);
       if (index !== -1) {
         state.items[index].status = new_status as CandidateStatus;
       }
-      if (state.selectedCandidate?.id === loan_id) {
+      if (state.selectedCandidate?.id === id) {
         state.selectedCandidate.status = new_status as CandidateStatus;
       }
+      const ridx = state.dashboardRecent.findIndex((l) => l.id === id);
+      if (ridx !== -1) {
+        state.dashboardRecent[ridx].status = new_status as CandidateStatus;
+      }
+    },
+    applyWsCandidatesSnapshot: (
+      state,
+      action: PayloadAction<CandidatesCursorResponse>
+    ) => {
+      const p = action.payload;
+      state.items = p.items;
+      const total = p.total ?? state.pagination.total;
+      const limit = p.limit;
+      state.pagination = {
+        total,
+        page: state.filters.page,
+        page_size: limit,
+        total_pages:
+          total > 0 && limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1,
+        next_cursor: p.next_cursor ?? null,
+      };
+    },
+    applyWsRecentCandidates: (
+      state,
+      action: PayloadAction<{
+        items: Candidate[];
+        next_cursor: string | null;
+        append: boolean;
+      }>
+    ) => {
+      const { items, next_cursor, append } = action.payload;
+      if (append && state.dashboardRecent.length > 0) {
+        const seen = new Set(state.dashboardRecent.map((c) => c.id));
+        for (const c of items) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id);
+            state.dashboardRecent.push(c);
+          }
+        }
+      } else {
+        state.dashboardRecent = items;
+      }
+      state.recentNextCursor = next_cursor ?? null;
+      state.recentHydrated = true;
     },
   },
   extraReducers: (builder) => {
     builder
+      .addCase(bootstrapDashboardRecent.fulfilled, (state, action) => {
+        if (state.recentHydrated) return;
+        const p = action.payload;
+        state.dashboardRecent = p.items;
+        state.recentNextCursor = p.next_cursor ?? null;
+        state.recentHydrated = true;
+      })
+      .addCase(bootstrapDashboardRecent.rejected, (state, action) => {
+        if (action.payload === THUNK_SUPERSEDED) {
+          return;
+        }
+        if (!state.recentHydrated) {
+          state.recentHydrated = true;
+          state.dashboardRecent = [];
+          state.recentNextCursor = null;
+        }
+      })
+
       .addCase(fetchCandidates.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchCandidates.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.items;
+        const p = action.payload;
+        state.items = p.items;
+        const total = p.total ?? state.pagination.total;
+        const limit = p.limit;
         state.pagination = {
-          total: action.payload.total,
-          page: action.payload.page,
-          page_size: action.payload.page_size,
-          total_pages: action.payload.total_pages,
+          total,
+          page: state.filters.page,
+          page_size: limit,
+          total_pages:
+            total > 0 && limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1,
+          next_cursor: p.next_cursor ?? null,
         };
       })
       .addCase(fetchCandidates.rejected, (state, action) => {
+        if (action.payload === THUNK_SUPERSEDED) {
+          return;
+        }
         state.loading = false;
         state.error = action.payload as string;
       });
@@ -265,8 +488,15 @@ const candidatesSlice = createSlice({
       })
       .addCase(createCandidate.fulfilled, (state, action) => {
         state.loading = false;
-        state.items.unshift(action.payload);
-        state.pagination.total += 1;
+        const incoming = action.payload;
+        if (!state.items.some((l) => l.id === incoming.id)) {
+          state.items.unshift(incoming);
+          state.pagination.total += 1;
+        }
+        state.dashboardRecent = [
+          incoming,
+          ...state.dashboardRecent.filter((c) => c.id !== incoming.id),
+        ];
       })
       .addCase(createCandidate.rejected, (state, action) => {
         state.loading = false;
@@ -297,14 +527,17 @@ const candidatesSlice = createSlice({
 
     builder
       .addCase(fetchStatistics.pending, (state) => {
-        state.loading = true;
+        state.statisticsLoading = true;
       })
       .addCase(fetchStatistics.fulfilled, (state, action) => {
-        state.loading = false;
+        state.statisticsLoading = false;
         state.statistics = action.payload;
       })
       .addCase(fetchStatistics.rejected, (state, action) => {
-        state.loading = false;
+        if (action.payload === THUNK_SUPERSEDED) {
+          return;
+        }
+        state.statisticsLoading = false;
         state.error = action.payload as string;
       });
   },
@@ -318,6 +551,8 @@ export const {
   candidateUpdated,
   candidateCreated,
   statusChanged,
+  applyWsCandidatesSnapshot,
+  applyWsRecentCandidates,
 } = candidatesSlice.actions;
 
 export default candidatesSlice.reducer;

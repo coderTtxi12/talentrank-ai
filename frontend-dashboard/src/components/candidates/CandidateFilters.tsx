@@ -31,19 +31,19 @@ const CandidateFilters = () => {
 
   const handleCountryChange = (value: string) => {
     const countryCode = value === '' ? null : (value as CountryCode);
-    dispatch(setFilters({ country_code: countryCode, page: 1 }));
-    dispatch(fetchCandidates({ country_code: countryCode, page: 1 }));
+    dispatch(setFilters({ country_code: countryCode, cursor: null, page: 1 }));
+    dispatch(fetchCandidates({ country_code: countryCode, cursor: null, page: 1 }));
   };
 
   const handleStatusChange = (value: string) => {
     const status = value === '' ? null : (value as CandidateStatus);
-    dispatch(setFilters({ status, page: 1 }));
-    dispatch(fetchCandidates({ status, page: 1 }));
+    dispatch(setFilters({ status, cursor: null, page: 1 }));
+    dispatch(fetchCandidates({ status, cursor: null, page: 1 }));
   };
 
   const handleClearFilters = () => {
     dispatch(clearFilters());
-    dispatch(fetchCandidates({ page: 1 }));
+    dispatch(fetchCandidates({ cursor: null, page: 1 }));
   };
 
   const hasActiveFilters =

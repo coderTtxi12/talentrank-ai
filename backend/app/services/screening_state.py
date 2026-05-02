@@ -258,6 +258,10 @@ def _update_state_pg_sync(
             db.flush()
             conv.candidate_id = candidate.id
 
+        if candidate.id is not None:
+            db.refresh(candidate)
+        initial_status_val = candidate.status.value
+
         normalized: Dict[str, Any] = {}
         for field, value in updates.items():
             if field not in ALLOWED_FIELDS:
@@ -320,9 +324,23 @@ def _update_state_pg_sync(
             setattr(candidate, "is_completed", True)
             applied["is_completed"] = True
 
+        cand_pk = candidate.id
         db.commit()
+
+        status_broadcast_payload: Dict[str, str] | None = None
+        if cand_pk is not None:
+            fresh = db.get(Candidate, cand_pk)
+            if fresh is not None:
+                final_status_val = fresh.status.value
+                if final_status_val != initial_status_val:
+                    status_broadcast_payload = {
+                        "candidate_id": str(cand_pk),
+                        "old_status": initial_status_val,
+                        "new_status": final_status_val,
+                    }
+
         state = _read_state_pg_sync(session_id)
-        return {"applied": applied, "state": state}
+        return {"applied": applied, "state": state, "status_broadcast": status_broadcast_payload}
 
 
 async def update_state_db(

@@ -1,0 +1,72 @@
+"""Pydantic schemas for candidate listings (API + WebSocket payloads).
+
+Aligned with the recruiter dashboard shape; ORM fields are mapped with defaults
+where the screening schema does not yet duplicate legacy loan-style columns.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class CandidatePublic(BaseModel):
+    """Single candidate row as consumed by the dashboard."""
+
+    id: str
+    country_code: Literal["ES", "MX"]
+    document_type: Literal["DNI", "CURP", "CC", "CPF"] = "CURP"
+    document_number: str = ""
+    full_name: str = ""
+    amount_requested: float = 0.0
+    currency: str = "USD"
+    monthly_income: float = 0.0
+    status: str
+    risk_score: Optional[float] = None
+    requires_review: bool = False
+    banking_info: Optional[dict] = None
+    extra_data: Optional[dict] = None
+    metadata: Optional[dict] = None
+    created_at: datetime
+    updated_at: datetime
+    processed_at: Optional[datetime] = None
+    created_by_id: Optional[str] = None
+    reviewed_by_id: Optional[str] = None
+
+    model_config = {"from_attributes": False}
+
+
+class CandidatesCursorPage(BaseModel):
+    """Cursor-paginated list (see ENDPOINT_RULES.md)."""
+
+    items: list[CandidatePublic]
+    next_cursor: Optional[str] = None
+    limit: int
+    total: Optional[int] = Field(
+        default=None,
+        description="Row count for current filters (only when include_total was requested).",
+    )
+
+
+class CandidatesSubscribePayload(BaseModel):
+    """Client → server: initial / refresh subscription for live list."""
+
+    cursor: Optional[str] = None
+    limit: int = Field(default=20, ge=1, le=100)
+    status_filter: Optional[str] = Field(default=None, validation_alias="status")
+    country_code: Optional[Literal["ES", "MX"]] = None
+    include_total: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class CandidatesRecentPayload(BaseModel):
+    """Client → server: cursor page for dashboard home (newest-first, same ordering as listing)."""
+
+    limit: int = Field(default=5, ge=1, le=50)
+    cursor: Optional[str] = Field(
+        default=None,
+        description="Opaque cursor; omit or null for the first window.",
+    )

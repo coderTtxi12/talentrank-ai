@@ -168,8 +168,19 @@ export interface CandidateFilters {
   country_code: CountryCode | null;
   status: CandidateStatus | null;
   requires_review: boolean | null;
-  page: number;
+  /** Paginación por cursor (API); null = primera página. */
+  cursor: string | null;
   page_size: number;
+  /** Número de página solo para la UI (1-based). */
+  page: number;
+}
+
+/** Respuesta GET /api/v1/candidates (cursor). */
+export interface CandidatesCursorResponse {
+  items: Candidate[];
+  next_cursor: string | null;
+  limit: number;
+  total: number | null;
 }
 
 export interface CandidatePagination {
@@ -177,6 +188,7 @@ export interface CandidatePagination {
   page: number;
   page_size: number;
   total_pages: number;
+  next_cursor: string | null;
 }
 
 /** Estadísticas — nombres de campos según respuesta de la API (`total_loans`, etc.). */
@@ -193,10 +205,18 @@ export interface CandidateStatistics {
 
 export interface CandidatesState {
   items: Candidate[];
+  /** Muestra de la home (evento WebSocket `recent_candidates_snapshot` o GET /recent). */
+  dashboardRecent: Candidate[];
   selectedCandidate: Candidate | null;
   statistics: CandidateStatistics | null;
+  statisticsLoading: boolean;
   loading: boolean;
   error: string | null;
   filters: CandidateFilters;
   pagination: CandidatePagination;
+  /** Paginación de la tarjeta "recientes" (Socket.IO ``subscribe_recent``). */
+  recentNextCursor: string | null;
+  /** Primera foto de candidatos recientes recibida por WS (lista vacía incluida). */
+  recentHydrated: boolean;
+  recentPageSize: number;
 }

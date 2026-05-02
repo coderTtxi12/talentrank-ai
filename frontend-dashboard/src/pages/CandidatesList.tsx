@@ -1,5 +1,5 @@
 /**
- * Listado de candidatos con filtros y paginación.
+ * Listado de candidatos con filtros y paginación por cursor.
  */
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -20,15 +20,25 @@ const CandidatesList = () => {
   const { items, loading, pagination, filters } = useAppSelector((state) => state.candidates);
 
   useEffect(() => {
-    dispatch(fetchCandidates(undefined));
-  }, [dispatch, filters.country_code, filters.status, filters.requires_review, filters.page]);
+    dispatch(setFilters({ page_size: 20, cursor: null, page: 1 }));
+  }, [dispatch]);
 
-  const handlePageChange = (newPage: number) => {
-    dispatch(setFilters({ page: newPage }));
-    dispatch(fetchCandidates({ page: newPage }));
+  useEffect(() => {
+    dispatch(fetchCandidates(undefined));
+  }, [dispatch, filters.country_code, filters.status, filters.requires_review, filters.page_size]);
+
+  const goFirstPage = () => {
+    dispatch(setFilters({ cursor: null, page: 1 }));
+    dispatch(fetchCandidates({ cursor: null, page: 1 }));
   };
 
-  const pages = Array.from({ length: pagination.total_pages }, (_, i) => i + 1);
+  const goNextPage = () => {
+    if (!pagination.next_cursor) return;
+    dispatch(
+      setFilters({ cursor: pagination.next_cursor, page: filters.page + 1 })
+    );
+    dispatch(fetchCandidates({ cursor: pagination.next_cursor, page: filters.page + 1 }));
+  };
 
   return (
     <div className="space-y-6">
@@ -63,59 +73,32 @@ const CandidatesList = () => {
         <CandidateTable candidates={items} loading={loading} />
       </Card>
 
-      {pagination.total_pages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => handlePageChange(pagination.page - 1)}
-          >
-            ← Previous
-          </Button>
-
-          <div className="flex items-center gap-1">
-            {pages.map((page) => {
-              const showPage =
-                page === 1 ||
-                page === pagination.total_pages ||
-                Math.abs(page - pagination.page) <= 1;
-
-              const showEllipsis =
-                page === 2 && pagination.page > 3 ||
-                page === pagination.total_pages - 1 && pagination.page < pagination.total_pages - 2;
-
-              if (!showPage && !showEllipsis) return null;
-
-              if (showEllipsis && !showPage) {
-                return (
-                  <span key={page} className="px-2 text-gray-400">
-                    ...
-                  </span>
-                );
-              }
-
-              return (
-                <Button
-                  key={page}
-                  variant={page === pagination.page ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </Button>
-              );
-            })}
+      {(pagination.next_cursor || filters.cursor) && (
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-gray-600">
+          <span>
+            Página {pagination.page}
+            {pagination.total > 0 && (
+              <span className="text-gray-400"> · {pagination.total} candidatos (filtro actual)</span>
+            )}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!filters.cursor}
+              onClick={goFirstPage}
+            >
+              Inicio
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!pagination.next_cursor}
+              onClick={goNextPage}
+            >
+              Siguiente →
+            </Button>
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={pagination.page >= pagination.total_pages}
-            onClick={() => handlePageChange(pagination.page + 1)}
-          >
-            Next →
-          </Button>
         </div>
       )}
     </div>

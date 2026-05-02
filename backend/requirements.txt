@@ -10,4 +10,5 @@ redis>=5.0.0
 openai>=1.51.0
 chromadb>=0.5.20
 langsmith>=0.4.37
+python-socketio>=5.11.0
 

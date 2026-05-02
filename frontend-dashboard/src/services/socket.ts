@@ -1,5 +1,6 @@
 /**
- * Socket.IO client for real-time updates.
+ * Cliente Socket.IO — conexión al namespace por defecto (/) vía /socket.io.
+ * La URL base es solo origen + puerto del API (sin /candidates en la ruta).
  */
 import { io, Socket } from 'socket.io-client';
 
@@ -14,71 +15,75 @@ export const isSocketConnected = (): boolean =>
 
 export const getLastConnectionTime = (): Date | null => lastConnectionTime;
 
+/** Origen del API (Engine.IO). En dev: VITE_SOCKET_URL o http://<host>:<VITE_SOCKET_PORT|8000>. */
+function getApiOriginForSocket(): string {
+  const env = (import.meta.env.VITE_SOCKET_URL as string | undefined)?.trim();
+  if (env) return env.replace(/\/$/, '');
+
+  if (import.meta.env.DEV) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const port = (import.meta.env.VITE_SOCKET_PORT as string | undefined)?.trim() || '8000';
+    return `http://${host}:${port}`;
+  }
+
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}`.replace(/\/$/, '');
+  }
+  return '';
+}
+
 export const connectSocket = (): Socket => {
   if (socket?.connected) {
     return socket;
   }
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
-  // Namespace del servidor (suele ser `/loans` si el backend no lo ha renombrado).
-  const socketNamespace = import.meta.env.VITE_SOCKET_NAMESPACE || '/loans';
-  const socketPath = import.meta.env.VITE_SOCKET_PATH || '/socket.io';
+  const fromConfig = getApiOriginForSocket();
+  const originResolved = fromConfig || 'http://localhost:8000';
+  if (!fromConfig) {
+    console.warn(
+      '[Socket.IO] Origen deducido vacío → usando fallback',
+      originResolved,
+      '(ajusta VITE_SOCKET_URL si el API no está ahí)'
+    );
+  }
 
-  console.log('[Socket.IO] Connecting to:', {
-    url: socketUrl,
-    namespace: socketNamespace,
-    path: socketPath,
+  const path = (import.meta.env.VITE_SOCKET_PATH as string | undefined)?.trim() || '/socket.io';
+
+  console.info('[Socket.IO] Conectando', {
+    origin: originResolved,
+    path,
+    pageOrigin: typeof window !== 'undefined' ? window.location.origin : '',
   });
 
-  socket = io(socketNamespace, {
-    ...(socketUrl && { url: socketUrl }),
-    path: socketPath,
-    transports: ['websocket', 'polling'],
-    auth: {},
+  socket = io(originResolved, {
+    path,
+    transports: ['polling', 'websocket'],
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 20,
+    reconnectionDelay: 800,
+    reconnectionDelayMax: 8000,
     autoConnect: true,
   });
 
   socket.on('connect', () => {
-    console.log('[Socket.IO] ✅ Connected successfully!', {
-      id: socket?.id,
-      transport: socket?.io?.engine?.transport?.name,
-    });
     isConnected = true;
     lastConnectionTime = new Date();
+    console.info('[Socket.IO] Conectado', socket?.id, socket?.io.engine?.transport?.name);
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('[Socket.IO] ❌ Disconnected:', reason);
     isConnected = false;
+    console.info('[Socket.IO] Desconectado', reason);
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('[Socket.IO] ⚠️ Connection error:', {
-      message: error.message,
-    });
+  socket.on('connect_error', (err) => {
     isConnected = false;
-  });
-
-  socket.on('reconnect', (attemptNumber) => {
-    console.log('[Socket.IO] 🔄 Reconnected after', attemptNumber, 'attempts');
-    isConnected = true;
-    lastConnectionTime = new Date();
-  });
-
-  socket.on('reconnect_attempt', (attemptNumber) => {
-    console.log('[Socket.IO] 🔄 Reconnection attempt', attemptNumber);
-  });
-
-  socket.on('reconnect_error', (error) => {
-    console.error('[Socket.IO] ⚠️ Reconnection error:', error.message);
-  });
-
-  socket.on('reconnect_failed', () => {
-    console.error('[Socket.IO] ❌ Reconnection failed after all attempts');
+    console.error('[Socket.IO] connect_error', err?.message || err);
   });
 
   return socket;
@@ -86,35 +91,27 @@ export const connectSocket = (): Socket => {
 
 export const disconnectSocket = (): void => {
   if (socket) {
+    socket.removeAllListeners();
     socket.disconnect();
     socket = null;
-    isConnected = false;
   }
+  isConnected = false;
 };
 
 export const subscribeToCountry = (countryCode: string): void => {
-  if (socket?.connected) {
-    socket.emit('subscribe_country', { country_code: countryCode });
-  }
+  socket?.emit('subscribe_country', { country_code: countryCode });
 };
 
 export const unsubscribeFromCountry = (countryCode: string): void => {
-  if (socket?.connected) {
-    socket.emit('unsubscribe_country', { country_code: countryCode });
-  }
+  socket?.emit('unsubscribe_country', { country_code: countryCode });
 };
 
-/** Suscripción a actualizaciones de un registro (payload API: `loan_id`). */
 export const subscribeToLoan = (recordId: string): void => {
-  if (socket?.connected) {
-    socket.emit('subscribe_loan', { loan_id: recordId });
-  }
+  socket?.emit('subscribe_loan', { loan_id: recordId });
 };
 
 export const unsubscribeFromLoan = (recordId: string): void => {
-  if (socket?.connected) {
-    socket.emit('unsubscribe_loan', { loan_id: recordId });
-  }
+  socket?.emit('unsubscribe_loan', { loan_id: recordId });
 };
 
 export const subscribeToCandidateRoom = subscribeToLoan;
