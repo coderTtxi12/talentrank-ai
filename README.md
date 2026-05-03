@@ -344,6 +344,7 @@ It integrates with the OpenAI clients in this repo via `wrap_openai` and `@trace
 | Topic | Document |
 |--------|-----------|
 | PostgreSQL schema & relationships | [`backend/docs/POSTGRESQL_DESIGN.md`](backend/docs/POSTGRESQL_DESIGN.md) |
+| Phase 1 screening flow (stages, agents, reflection) | [`backend/docs/Phase1_Conversation_Design.md`](backend/docs/Phase1_Conversation_Design.md) |
 | Employer public KB text (RAG / prompts) | [`backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`](backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt) |
 | Listwise + Plackett–Luce methodology | [`backend/docs/listwise+plackett-luce.pdf`](backend/docs/listwise+plackett-luce.pdf) |
 

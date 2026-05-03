@@ -65,6 +65,7 @@ backend/outputs/*
 # --- backend/docs: only these files are tracked ---
 backend/docs/*
 !backend/docs/POSTGRESQL_DESIGN.md
+!backend/docs/Phase1_Conversation_Design.md
 !backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt
 !backend/docs/listwise+plackett-luce.pdf
 
