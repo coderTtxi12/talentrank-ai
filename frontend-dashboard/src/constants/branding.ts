@@ -33,8 +33,10 @@ export const DASH_SIM_MODAL_CONFIRM = 'Sí, cargar simulación';
 export const DASH_SIM_SUBMITTING = 'Insertando datos…';
 export const DASH_SIM_SUCCESS = (batchId: string, n: number) =>
   `Simulación lista: ${n} candidatos (lote ${batchId}).`;
-export const DASH_SIM_ERROR_GENERIC =
-  'No se pudo cargar la simulación. Revisa el API o la consola.';
+export const DASH_SIM_WARN_ALREADY_RAN =
+  'Esta simulación ya se ejecutó en el servidor; no se pueden insertar más datos sintéticos.';
+export const DASH_SIM_USED_HINT =
+  'La simulación ya se ejecutó en este navegador. Para volver a cargar datos simulados, borra el almacenamiento local del sitio o usa otra ventana privada.';
 export const DASH_RANK_MODAL_TITLE =
   '¿Confirmas ejecutar Listwise + Plackett–Luce en el batch actual?';
 export const DASH_RANK_MODAL_BODY =
@@ -47,7 +49,8 @@ export const DASH_RANK_SUCCESS = (jobId: string) =>
 export const DASH_RANK_ERROR_GENERIC =
   'No se pudo encolar el trabajo. Revisa la red o los logs del API.';
 export const DASH_STAT_TOTAL = 'Total candidatos';
-export const DASH_STAT_RISK = 'Puntuación de riesgo media';
+export const DASH_STAT_LISTWISE_QUEUE = 'Listos para listwise';
+export const DASH_STAT_POST_PL = 'Rankeados (Plackett–Luce)';
 export const DASH_CHART_STATUS = 'Candidatos por estado';
 export const DASH_CHART_COUNTRY = 'Candidatos por país';
 export const DASH_RECENT_TITLE = 'Candidatos recientes';
@@ -67,9 +70,16 @@ export const LIST_FILTERS_ACTIVE = 'Filtros activos';
 
 export const TOURNAMENTS_TITLE = 'Torneos de ranking';
 export const TOURNAMENTS_SUBTITLE =
-  'Listado de mini-torneos listwise, más recientes primero.';
+  'Por corrida: mini-torneos listwise y, si hubo fit, el ranking global Plackett–Luce.';
 export const TOURNAMENTS_COL_CREATED = 'Fecha';
 export const TOURNAMENTS_COL_RUN = 'Corrida';
+export const TOURNAMENTS_RUN_META = (
+  rubric: string,
+  pool: number,
+  status: string,
+  nTournaments: number
+) =>
+  `Rúbrica: ${rubric} · Pool: ${pool} · Estado: ${status} · ${nTournaments} mini-torneo(s)`;
 export const TOURNAMENTS_COL_TOURNAMENT = 'Torneo';
 export const TOURNAMENTS_COL_K = 'En grupo';
 export const TOURNAMENTS_COL_MODEL = 'Modelo';
@@ -82,6 +92,16 @@ export const TOURNAMENTS_PREV = 'Anterior';
 export const TOURNAMENTS_NEXT = 'Siguiente';
 export const TOURNAMENTS_PAGINATION = (from: number, to: number, total: number) =>
   `${from.toLocaleString('es-ES')}–${to.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')}`;
+export const TOURNAMENTS_PAGINATION_RUNS = (from: number, to: number, totalRuns: number) =>
+  `Corridas ${from.toLocaleString('es-ES')}–${to.toLocaleString('es-ES')} de ${totalRuns.toLocaleString('es-ES')}`;
+
+export const TOURNAMENTS_PL_TITLE = 'Ranking global (Plackett–Luce)';
+export const TOURNAMENTS_PL_EMPTY =
+  'No hay resultados PL persistidos para esta corrida (sin contrastes en torneos o datos incompletos).';
+export const TOURNAMENTS_PL_COL_RANK = '#';
+export const TOURNAMENTS_PL_COL_CANDIDATE = 'Candidato';
+export const TOURNAMENTS_PL_COL_UTILITY = 'Utilidad';
+export const TOURNAMENTS_PL_COL_SEEN = 'Apariciones';
 
 export const FILTERS_LABEL_COUNTRY = 'País';
 export const FILTERS_ALL_COUNTRIES = 'Todos los países';

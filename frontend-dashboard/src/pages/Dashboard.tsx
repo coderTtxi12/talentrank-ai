@@ -30,7 +30,8 @@ import {
   DASH_SIM_MODAL_CONFIRM,
   DASH_SIM_SUBMITTING,
   DASH_SIM_SUCCESS,
-  DASH_SIM_ERROR_GENERIC,
+  DASH_SIM_WARN_ALREADY_RAN,
+  DASH_SIM_USED_HINT,
   DASH_RANK_MODAL_TITLE,
   DASH_RANK_MODAL_BODY,
   DASH_RANK_MODAL_CANCEL,
@@ -39,7 +40,8 @@ import {
   DASH_RANK_SUCCESS,
   DASH_RANK_ERROR_GENERIC,
   DASH_STAT_TOTAL,
-  DASH_STAT_RISK,
+  DASH_STAT_LISTWISE_QUEUE,
+  DASH_STAT_POST_PL,
   DASH_CHART_STATUS,
   DASH_CHART_COUNTRY,
   DASH_RECENT_TITLE,
@@ -54,6 +56,24 @@ import {
 } from '@/constants/branding';
 import { createListwiseJob } from '@/services/jobsApi';
 import { seedScreeningSimulation } from '@/services/simulationApi';
+
+const SIMULATION_USED_STORAGE_KEY = 'orbio_dashboard_simulation_used';
+
+function readSimulationAlreadyUsed(): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(SIMULATION_USED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markSimulationUsed(): void {
+  try {
+    localStorage.setItem(SIMULATION_USED_STORAGE_KEY, '1');
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 // Country info
 const countries: Record<CountryCode, { name: string; flag: string }> = {
@@ -78,12 +98,13 @@ const Dashboard = () => {
     recentNextCursor,
   } = useAppSelector((state) => state.candidates);
 
+  const [simulationAlreadyUsed, setSimulationAlreadyUsed] = useState(readSimulationAlreadyUsed);
   const [simModalOpen, setSimModalOpen] = useState(false);
   const [simSubmitting, setSimSubmitting] = useState(false);
   const [rankModalOpen, setRankModalOpen] = useState(false);
   const [rankSubmitting, setRankSubmitting] = useState(false);
   const [rankBanner, setRankBanner] = useState<{
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'warning';
     text: string;
   } | null>(null);
 
@@ -109,7 +130,13 @@ const Dashboard = () => {
         <div className="flex flex-col items-end gap-2">
           {rankBanner ? (
             <p
-              className={`text-sm max-w-md text-right ${rankBanner.type === 'success' ? 'text-green-700' : 'text-red-600'}`}
+              className={`text-sm max-w-md text-right ${
+                rankBanner.type === 'success'
+                  ? 'text-green-700'
+                  : rankBanner.type === 'warning'
+                    ? 'text-amber-800'
+                    : 'text-red-600'
+              }`}
               role="status"
             >
               {rankBanner.text}
@@ -119,8 +146,10 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="secondary"
-              disabled={rankSubmitting || simSubmitting}
+              disabled={rankSubmitting || simSubmitting || simulationAlreadyUsed}
+              title={simulationAlreadyUsed ? DASH_SIM_USED_HINT : undefined}
               onClick={() => {
+                if (simulationAlreadyUsed) return;
                 setRankBanner(null);
                 setSimModalOpen(true);
               }}
@@ -144,9 +173,8 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 transition-opacity ${statisticsLoading ? 'opacity-70' : ''}`}
+        className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 transition-opacity ${statisticsLoading ? 'opacity-70' : ''}`}
       >
-        {/* Total candidatos */}
         <Card className="bg-gradient-to-br from-primary-500 to-primary-600 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
@@ -161,18 +189,27 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        {/* Avg Risk Score */}
         <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">{DASH_STAT_RISK}</p>
+              <p className="text-purple-100 text-sm">{DASH_STAT_LISTWISE_QUEUE}</p>
               <p className="text-3xl font-bold mt-1">
-                {statistics?.average_risk_score != null
-                  ? statistics.average_risk_score.toFixed(0)
-                  : 'N/A'}
+                {statistics?.by_status?.sentiment_analysis ?? 0}
               </p>
             </div>
-            <div className="text-4xl opacity-80">📈</div>
+            <div className="text-4xl opacity-80">📋</div>
+          </div>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-teal-500 to-teal-600 text-white border-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-teal-100 text-sm">{DASH_STAT_POST_PL}</p>
+              <p className="text-3xl font-bold mt-1">
+                {statistics?.by_status?.plackett_luce ?? 0}
+              </p>
+            </div>
+            <div className="text-4xl opacity-80">🏆</div>
           </div>
         </Card>
       </div>
@@ -337,7 +374,7 @@ const Dashboard = () => {
         </div>
       </Card>
       <Modal
-        isOpen={simModalOpen}
+        isOpen={simModalOpen && !simulationAlreadyUsed}
         onClose={() => !simSubmitting && setSimModalOpen(false)}
         title={DASH_SIM_MODAL_TITLE}
         size="md"
@@ -361,6 +398,8 @@ const Dashboard = () => {
                 setRankBanner(null);
                 try {
                   const res = await seedScreeningSimulation();
+                  markSimulationUsed();
+                  setSimulationAlreadyUsed(true);
                   setSimModalOpen(false);
                   setRankBanner({
                     type: 'success',
@@ -370,7 +409,7 @@ const Dashboard = () => {
                   dispatch(bootstrapDashboardRecent(undefined));
                 } catch {
                   setSimModalOpen(false);
-                  setRankBanner({ type: 'error', text: DASH_SIM_ERROR_GENERIC });
+                  setRankBanner({ type: 'warning', text: DASH_SIM_WARN_ALREADY_RAN });
                 } finally {
                   setSimSubmitting(false);
                 }

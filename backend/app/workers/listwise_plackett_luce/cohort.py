@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.logging import get_logger
 from app.models.database import (
     Candidate,
     CandidateStatus,
@@ -22,6 +23,7 @@ from app.models.database import (
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
 JD_PUBLIC_INFO_PATH = BACKEND_ROOT / "docs" / "GRUPO_SAZON_PUBLIC_INFO_ES.txt"
 
+logger = get_logger(__name__)
 
 def read_jd_public_context(max_chars: int = 12000) -> str:
     """Plain-text JD / employer context for listwise prompts."""
@@ -156,10 +158,29 @@ def load_ranking_cards_for_ids(candidate_ids: List[uuid.UUID]) -> Dict[str, Dict
         return {str(cid): build_candidate_ranking_card(db, cid) for cid in candidate_ids}
 
 
-def advance_candidates_to_listwise_status(db: Session, candidate_ids: List[uuid.UUID]) -> None:
+def advance_candidates_to_plackett_luce_status(
+    db: Session, candidate_ids: List[uuid.UUID]
+) -> None:
+    """After listwise + Plackett–Luce aggregation, move pipeline stage forward."""
+
+    advanced = 0
+    missing = 0
+    skipped_other_status = 0
     for cid in candidate_ids:
         row = db.get(Candidate, cid)
         if row is None:
+            missing += 1
             continue
         if row.status == CandidateStatus.SENTIMENT_ANALYSIS:
-            row.status = CandidateStatus.LISTWISE
+            row.status = CandidateStatus.PLACKETT_LUCE
+            advanced += 1
+        else:
+            skipped_other_status += 1
+    logger.info(
+        "PL cohort: advance status sentiment_analysis→plackett_luce "
+        "advanced=%d missing_row=%d skipped_non_sentiment=%d (input_ids=%d)",
+        advanced,
+        missing,
+        skipped_other_status,
+        len(candidate_ids),
+    )

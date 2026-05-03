@@ -12,7 +12,7 @@ import os
 import signal
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import psycopg
 from sqlalchemy import select, update
@@ -23,11 +23,12 @@ from app.core.database import SessionLocal
 from app.core.logging import configure_logging, get_logger
 from app.models.database import Job, JobStatus, JobType
 from app.workers.listwise_plackett_luce.cohort import (
-    advance_candidates_to_listwise_status,
+    advance_candidates_to_plackett_luce_status,
     list_candidate_ids_pending_listwise,
     read_jd_public_context,
 )
 from app.workers.listwise_plackett_luce.persistence import (
+    apply_plackett_luce_for_run,
     persist_listwise_orch_and_tournaments,
 )
 from app.workers.listwise_plackett_luce.orchestrator import run_listwise_orchestrator
@@ -126,10 +127,18 @@ def _finalize_listwise_after_orchestrator_sync(
     vacancy_id: Optional[uuid.UUID],
     candidate_ids: List[uuid.UUID],
     orch: Dict[str, Any],
-) -> uuid.UUID:
-    """Persist ranking rows (orchestrator + tournaments), then advance candidate status."""
+) -> Tuple[uuid.UUID, Dict[str, Any]]:
+    """Persist tournaments, fit Plackett–Luce for this run, persist ranking_results, advance statuses."""
 
     label = (settings.OPENAI_MODEL or "").strip() or "unknown"
+    logger.info(
+        "[%s] finalize: persist RankingRun+tournaments job_id=%s vacancy_id=%s cohort=%d model=%s",
+        WORKER_NAME,
+        job_id,
+        vacancy_id,
+        len(candidate_ids),
+        label,
+    )
     with SessionLocal() as db:
         run_id = persist_listwise_orch_and_tournaments(
             db,
@@ -139,9 +148,26 @@ def _finalize_listwise_after_orchestrator_sync(
             orch=orch,
             model_label=label,
         )
-        advance_candidates_to_listwise_status(db, candidate_ids)
+        logger.info("[%s] finalize: ranking_run_id=%s → apply_plackett_luce_for_run", WORKER_NAME, run_id)
+        pl_out = apply_plackett_luce_for_run(
+            db, run_id=run_id, cohort_ids=candidate_ids
+        )
+        ranked_raw = pl_out.get("plackett_ranked_candidate_ids") or []
+        ranked_uuids: List[uuid.UUID] = []
+        for s in ranked_raw:
+            try:
+                ranked_uuids.append(uuid.UUID(str(s)))
+            except ValueError:
+                continue
+        logger.info(
+            "[%s] finalize: PL ranked_candidate_ids=%d → advance_candidates_to_plackett_luce_status",
+            WORKER_NAME,
+            len(ranked_uuids),
+        )
+        advance_candidates_to_plackett_luce_status(db, ranked_uuids)
         db.commit()
-        return run_id
+        logger.info("[%s] finalize: committed DB job_id=%s run_id=%s", WORKER_NAME, job_id, run_id)
+        return run_id, pl_out
 
 
 async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
@@ -169,7 +195,7 @@ async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
         candidate_ids=[str(c) for c in candidate_ids],
     )
 
-    run_id = await asyncio.to_thread(
+    run_id, pl_summary = await asyncio.to_thread(
         _finalize_listwise_after_orchestrator_sync,
         job_id,
         vacancy_id,
@@ -183,6 +209,7 @@ async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
         "cohort_candidate_ids": [str(c) for c in candidate_ids],
         "ranking_run_id": str(run_id),
         "orchestrator": orch,
+        "plackett_luce": pl_summary.get("plackett_luce"),
     }
 
 

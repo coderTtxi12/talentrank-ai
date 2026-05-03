@@ -1,11 +1,11 @@
 import api from '@/services/api';
-import type { RankingTournamentsPage } from '@/types/ranking';
+import type { RankingTournamentsByRunPage } from '@/types/ranking';
 
-export async function fetchRankingTournamentsPage(
+export async function fetchRankingTournamentsByRunPage(
   offset: number,
   limit: number
-): Promise<RankingTournamentsPage> {
-  const { data } = await api.get<RankingTournamentsPage>('/ranking/tournaments', {
+): Promise<RankingTournamentsByRunPage> {
+  const { data } = await api.get<RankingTournamentsByRunPage>('/ranking/tournaments/by-run', {
     params: { offset, limit },
   });
   return data;
