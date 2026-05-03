@@ -23,6 +23,14 @@ import {
   DASH_TITLE,
   DASH_SUBTITLE,
   DASH_BTN_NEW,
+  DASH_BTN_SIMULATION,
+  DASH_SIM_MODAL_TITLE,
+  DASH_SIM_MODAL_BODY,
+  DASH_SIM_MODAL_CANCEL,
+  DASH_SIM_MODAL_CONFIRM,
+  DASH_SIM_SUBMITTING,
+  DASH_SIM_SUCCESS,
+  DASH_SIM_ERROR_GENERIC,
   DASH_RANK_MODAL_TITLE,
   DASH_RANK_MODAL_BODY,
   DASH_RANK_MODAL_CANCEL,
@@ -45,6 +53,7 @@ import {
   TABLE_COL_STATUS,
 } from '@/constants/branding';
 import { createListwiseJob } from '@/services/jobsApi';
+import { seedScreeningSimulation } from '@/services/simulationApi';
 
 // Country info
 const countries: Record<CountryCode, { name: string; flag: string }> = {
@@ -69,6 +78,8 @@ const Dashboard = () => {
     recentNextCursor,
   } = useAppSelector((state) => state.candidates);
 
+  const [simModalOpen, setSimModalOpen] = useState(false);
+  const [simSubmitting, setSimSubmitting] = useState(false);
   const [rankModalOpen, setRankModalOpen] = useState(false);
   const [rankSubmitting, setRankSubmitting] = useState(false);
   const [rankBanner, setRankBanner] = useState<{
@@ -104,17 +115,30 @@ const Dashboard = () => {
               {rankBanner.text}
             </p>
           ) : null}
-          <button
-            type="button"
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
-            disabled={rankSubmitting}
-            onClick={() => {
-              setRankBanner(null);
-              setRankModalOpen(true);
-            }}
-          >
-            {DASH_BTN_NEW}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={rankSubmitting || simSubmitting}
+              onClick={() => {
+                setRankBanner(null);
+                setSimModalOpen(true);
+              }}
+            >
+              {DASH_BTN_SIMULATION}
+            </Button>
+            <button
+              type="button"
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
+              disabled={rankSubmitting || simSubmitting}
+              onClick={() => {
+                setRankBanner(null);
+                setRankModalOpen(true);
+              }}
+            >
+              {DASH_BTN_NEW}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -312,6 +336,51 @@ const Dashboard = () => {
           </Link>
         </div>
       </Card>
+      <Modal
+        isOpen={simModalOpen}
+        onClose={() => !simSubmitting && setSimModalOpen(false)}
+        title={DASH_SIM_MODAL_TITLE}
+        size="md"
+      >
+        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{DASH_SIM_MODAL_BODY}</p>
+        <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={simSubmitting}
+            onClick={() => setSimModalOpen(false)}
+          >
+            {DASH_SIM_MODAL_CANCEL}
+          </Button>
+          <Button
+            type="button"
+            disabled={simSubmitting}
+            onClick={() => {
+              void (async () => {
+                setSimSubmitting(true);
+                setRankBanner(null);
+                try {
+                  const res = await seedScreeningSimulation();
+                  setSimModalOpen(false);
+                  setRankBanner({
+                    type: 'success',
+                    text: DASH_SIM_SUCCESS(res.batch_id, res.inserted_candidates),
+                  });
+                  dispatch(fetchStatistics(undefined));
+                  dispatch(bootstrapDashboardRecent(undefined));
+                } catch {
+                  setSimModalOpen(false);
+                  setRankBanner({ type: 'error', text: DASH_SIM_ERROR_GENERIC });
+                } finally {
+                  setSimSubmitting(false);
+                }
+              })();
+            }}
+          >
+            {simSubmitting ? DASH_SIM_SUBMITTING : DASH_SIM_MODAL_CONFIRM}
+          </Button>
+        </div>
+      </Modal>
       <Modal
         isOpen={rankModalOpen}
         onClose={() => !rankSubmitting && setRankModalOpen(false)}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { CHAT_INPUT_PLACEHOLDER } from '@/constants/branding';
 import { InputFormProps } from '@/types';
 import styles from './InputForm.module.css';
 
@@ -14,7 +15,7 @@ export const InputForm: React.FC<InputFormProps> = ({
   onFileSelect,
   onOpenFileDialog,
   selectedFiles = [],
-  placeholder = "Ask anything",
+  placeholder = CHAT_INPUT_PLACEHOLDER,
   className = ""
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);

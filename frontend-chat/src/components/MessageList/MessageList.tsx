@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CHAT_INPUT_PLACEHOLDER } from '@/constants/branding';
 import { MessageListProps } from '@/types';
 import { Message } from '../Message/Message';
 import { TypingIndicator } from '../TypingIndicator/TypingIndicator';
@@ -51,7 +52,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           onFileSelect={onFileSelect}
           onOpenFileDialog={onOpenFileDialog}
           selectedFiles={selectedFiles}
-          placeholder="Ask anything"
+          placeholder={CHAT_INPUT_PLACEHOLDER}
           className="chat-input-form"
         />
       </div>

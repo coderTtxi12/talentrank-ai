@@ -23,13 +23,24 @@ export const CLEAR_FILTERS = 'Quitar filtros';
 export const DASH_TITLE = 'Panel';
 export const DASH_SUBTITLE =
   'Resumen del funnel de screening de candidatos (reparto)';
-export const DASH_BTN_NEW = 'Ejecutar Listwise + Plackett–Luce';
+export const DASH_BTN_NEW = 'Run Listwise + Plackett–Luce';
+export const DASH_BTN_SIMULATION = 'Run Simulation';
+export const DASH_SIM_MODAL_TITLE = '¿Cargar cohorte simulada de screening?';
+export const DASH_SIM_MODAL_BODY =
+  'Se insertarán 10 candidatos sintéticos con conversación de screening completada.';
+export const DASH_SIM_MODAL_CANCEL = 'Cancelar';
+export const DASH_SIM_MODAL_CONFIRM = 'Sí, cargar simulación';
+export const DASH_SIM_SUBMITTING = 'Insertando datos…';
+export const DASH_SIM_SUCCESS = (batchId: string, n: number) =>
+  `Simulación lista: ${n} candidatos (lote ${batchId}).`;
+export const DASH_SIM_ERROR_GENERIC =
+  'No se pudo cargar la simulación. Revisa el API o la consola.';
 export const DASH_RANK_MODAL_TITLE =
-  '¿Confirmas ejecutar Listwise + Plackett–Luce en el lote actual?';
+  '¿Confirmas ejecutar Listwise + Plackett–Luce en el batch actual?';
 export const DASH_RANK_MODAL_BODY =
-  'Se encolará un trabajo en el API (ruta jobs/listwise). El worker clasificará candidatos en análisis de sentimiento (por defecto, todos los que estén en ese estado y el backend incluya en la cohorte). Solo continúa si este es el batch correcto.';
+  'Se crearan torneos y subagentes clasificaran a los mejores candidatos. Plackett-Luce analizará los resultados de los subagentes y encontrará un patrón en la data, así eligiiendo a los top mejores postulantes.';
 export const DASH_RANK_MODAL_CANCEL = 'Cancelar';
-export const DASH_RANK_MODAL_CONFIRM = 'Sí, encolar trabajo';
+export const DASH_RANK_MODAL_CONFIRM = 'Sí, ejecutar';
 export const DASH_RANK_SUBMITTING = 'Encolando…';
 export const DASH_RANK_SUCCESS = (jobId: string) =>
   `Trabajo encolado. ID: ${jobId.slice(0, 8)}…`;

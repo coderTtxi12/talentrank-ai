@@ -8,23 +8,20 @@ import uuid
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-from openai import AsyncOpenAI
-
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.openai_transient_retry import await_with_transient_retry
 from app.workers.listwise_plackett_luce.cohort import load_ranking_cards_for_ids
+from app.workers.listwise_plackett_luce.openai_listwise import get_listwise_async_client
 from app.workers.listwise_plackett_luce.subagent import (
     run_group_ranking_subagent,
     validate_uuid_list,
 )
 from prompts.prompts import LISTWISE_ORCHESTRATOR_SYSTEM_PROMPT
-from langsmith.wrappers import wrap_openai
 
 logger = get_logger(__name__)
 
 DEFAULT_MAX_STEPS = 24
-
-_client: Optional[AsyncOpenAI] = None
 
 LISTWISE_ORCHESTRATOR_TOOLS: List[Dict[str, Any]] = [
     {
@@ -58,20 +55,8 @@ LISTWISE_ORCHESTRATOR_TOOLS: List[Dict[str, Any]] = [
 ]
 
 
-def _get_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
-        if not settings.OPENAI_API_KEY:
-            raise RuntimeError("OPENAI_API_KEY is not configured.")
-        if not settings.OPENAI_MODEL:
-            raise RuntimeError("OPENAI_MODEL is not configured.")
-        _client = wrap_openai(
-            AsyncOpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                timeout=settings.OPENAI_TIMEOUT_SECONDS,
-            )
-        )
-    return _client
+def _get_client():
+    return get_listwise_async_client()
 
 
 def _assistant_msg_to_dict(msg: Any) -> Dict[str, Any]:
@@ -184,11 +169,20 @@ async def run_listwise_orchestrator(
     for step in range(max_steps):
         steps_used = step + 1
         is_last = step == max_steps - 1
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=messages,  # type: ignore[arg-type]
-            tools=LISTWISE_ORCHESTRATOR_TOOLS,  # type: ignore[arg-type]
-            tool_choice="none" if is_last else "auto",
+
+        async def _orch_completion():
+            return await client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=messages,  # type: ignore[arg-type]
+                tools=LISTWISE_ORCHESTRATOR_TOOLS,  # type: ignore[arg-type]
+                tool_choice="none" if is_last else "auto",
+            )
+
+        response = await await_with_transient_retry(
+            _orch_completion,
+            logger=logger,
+            operation=f"listwise_orchestrator_step_{step + 1}",
+            max_attempts=settings.OPENAI_LISTWISE_MAX_RETRIES,
         )
         msg = response.choices[0].message
         messages.append(_assistant_msg_to_dict(msg))
@@ -240,12 +234,25 @@ async def run_listwise_orchestrator(
                 load_ranking_cards_for_ids, uuid_list
             )
 
-            sub = await run_group_ranking_subagent(
-                candidate_ids=cids,
-                orchestrator_instructions=instructions,
-                jd_context=jd_context,
-                candidate_cards=candidate_cards,
-            )
+            try:
+                sub = await run_group_ranking_subagent(
+                    candidate_ids=cids,
+                    orchestrator_instructions=instructions,
+                    jd_context=jd_context,
+                    candidate_cards=candidate_cards,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "listwise subagent failed candidate_ids=%s: %s",
+                    cids[:5],
+                    exc,
+                )
+                sub = {
+                    "error": type(exc).__name__,
+                    "message": str(exc)[:2000],
+                    "ordered_candidate_ids": sorted(cids),
+                    "rationale": f"subagent_failed:{type(exc).__name__}",
+                }
             tournament_log.append(
                 {
                     "candidate_ids": cids,

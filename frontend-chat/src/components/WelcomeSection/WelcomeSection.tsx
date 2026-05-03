@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { CHAT_INPUT_PLACEHOLDER, CHAT_WELCOME_TITLE } from '@/constants/branding';
 import { WelcomeSectionProps } from '@/types';
 import { InputForm } from '../InputForm/InputForm';
 import { FilePreview } from '../FilePreview/FilePreview';
@@ -20,10 +21,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 }) => {
   return (
     <div className={styles.welcomeSection}>
-      <h2 className={styles.welcomeTitle}>Chat with your restaurant data</h2>
-      <p className={styles.welcomeDescription}>
-        Query sales, revenue, and performance metrics using natural language
-      </p>
+      <h2 className={styles.welcomeTitle}>{CHAT_WELCOME_TITLE}</h2>
       <FilePreview 
         files={selectedFiles}
         onRemoveFile={onRemoveFile}
@@ -38,7 +36,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
         onFileSelect={onFileSelect}
         onOpenFileDialog={onOpenFileDialog}
         selectedFiles={selectedFiles}
-        placeholder="Ask anything"
+        placeholder={CHAT_INPUT_PLACEHOLDER}
         className="centered-input-form"
       />
     </div>

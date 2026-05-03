@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { CHAT_FILE_REMOVE_TITLE } from '@/constants/branding';
 import { FilePreviewProps } from '@/types';
 import styles from './FilePreview.module.css';
 
@@ -70,7 +71,7 @@ const FileThumbnail: React.FC<FileThumbnailProps> = ({ file, onRemove }) => {
       <button 
         className={styles.removeFileBtn}
         onClick={onRemove}
-        title="Remove file"
+        title={CHAT_FILE_REMOVE_TITLE}
       >
         <span className="material-icons">close</span>
       </button>

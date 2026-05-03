@@ -74,6 +74,12 @@ class Settings(BaseSettings):
         description="Cap of recent turns kept in Redis hist:<session_id>.",
     )
 
+    # When false, POST /simulation/seed-screening-cohort returns 403 (recommended in production).
+    ALLOW_SIMULATION_SEED: bool = Field(
+        default=True,
+        description="Allow POST /simulation/seed-screening-cohort. Set false in production.",
+    )
+
     # LLM (OpenAI)
     OPENAI_API_KEY: str = Field(
         default="",
@@ -92,6 +98,19 @@ class Settings(BaseSettings):
         description="System prompt prepended to every LLM call.",
     )
     OPENAI_TIMEOUT_SECONDS: float = Field(default=30.0)
+    OPENAI_LISTWISE_TIMEOUT_SECONDS: float = Field(
+        default=300.0,
+        description=(
+            "Per-request HTTP timeout for listwise orchestrator + subagent (large JSON payloads). "
+            "Override via env if you still see APITimeoutError."
+        ),
+    )
+    OPENAI_LISTWISE_MAX_RETRIES: int = Field(
+        default=3,
+        ge=1,
+        le=8,
+        description="Retries on timeout, connection errors, rate limits, and OpenAI 5xx for listwise only.",
+    )
 
     # Embeddings (OpenAI)
     OPENAI_EMBEDDING_MODEL: str = Field(
