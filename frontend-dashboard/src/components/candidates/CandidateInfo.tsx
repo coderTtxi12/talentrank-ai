@@ -186,7 +186,6 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
       {shouldShowSentimentAnalysis(candidate) && (
         <SentimentSignalsSection
           sentiment={candidate.sentiment}
-          sentimentConfidence={candidate.sentiment_confidence}
           signals={candidate.sentiment_signals}
         />
       )}

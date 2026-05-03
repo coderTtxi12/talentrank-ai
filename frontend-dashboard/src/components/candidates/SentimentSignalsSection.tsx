@@ -1,5 +1,5 @@
 /**
- * Muestra el último `sentiment_results` (clasificación, confianza, signals).
+ * Muestra el último `sentiment_results` (clasificación, signals).
  * Estilo alineado con el funnel de screening Orbio (primary, tarjetas tipo ficha).
  */
 import type { ReactNode } from 'react';
@@ -8,7 +8,6 @@ import {
   INFO_SECTION_SENTIMENT,
   INFO_SECTION_SENTIMENT_HINT,
   INFO_SENTIMENT_CLASSIFICATION,
-  INFO_SENTIMENT_CONFIDENCE,
 } from '@/constants/branding';
 
 export function hasSentimentSignals(s: unknown): s is Record<string, unknown> {
@@ -56,10 +55,9 @@ function signalsHasVisibleContent(signals: Record<string, unknown>): boolean {
 }
 
 export function shouldShowSentimentAnalysis(
-  c: Pick<Candidate, 'sentiment' | 'sentiment_confidence' | 'sentiment_signals'>
+  c: Pick<Candidate, 'sentiment' | 'sentiment_signals'>
 ): boolean {
   if (c.sentiment != null && String(c.sentiment).trim() !== '') return true;
-  if (c.sentiment_confidence != null && Number.isFinite(c.sentiment_confidence)) return true;
   const sig = c.sentiment_signals;
   if (hasSentimentSignals(sig) && signalsHasVisibleContent(sig)) return true;
   return false;
@@ -104,51 +102,6 @@ function formatEngagement(raw: unknown): string {
 function formatSentimentEnum(raw: string): string {
   const k = raw.trim().toLowerCase();
   return SENTIMENT_ENUM_LABELS[k] ?? raw.trim();
-}
-
-function formatConfidence(value: number): string {
-  const n = normalizeConfidence01(value);
-  if (n !== null) {
-    return `${(n * 100).toLocaleString('es-ES', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    })} %`;
-  }
-  return value.toLocaleString('es-ES', { maximumFractionDigits: 4 });
-}
-
-/** Confianza en escala 0–1 (acepta también 0–100 por si acaso). */
-function normalizeConfidence01(value: number): number | null {
-  if (!Number.isFinite(value)) return null;
-  if (value >= 0 && value <= 1) return value;
-  if (value > 1 && value <= 100) return value / 100;
-  return null;
-}
-
-type ConfidenceBand = 'very_high' | 'high' | 'medium' | 'low';
-
-function confidenceBand(value: number): ConfidenceBand {
-  const v = normalizeConfidence01(value);
-  if (v === null) return 'medium';
-  if (v >= 0.85) return 'very_high';
-  if (v >= 0.65) return 'high';
-  if (v >= 0.45) return 'medium';
-  return 'low';
-}
-
-function confidenceBadgeClass(band: ConfidenceBand): string {
-  const base =
-    'inline-flex items-center rounded-md px-2.5 py-1 text-sm font-semibold ring-1 ring-inset';
-  switch (band) {
-    case 'very_high':
-      return `${base} bg-green-50 text-green-800 ring-green-600/25`;
-    case 'high':
-      return `${base} bg-emerald-50 text-emerald-900 ring-emerald-600/20`;
-    case 'medium':
-      return `${base} bg-amber-50 text-amber-900 ring-amber-600/25`;
-    case 'low':
-      return `${base} bg-orange-50 text-orange-900 ring-orange-600/25`;
-  }
 }
 
 function sentimentBadgeClass(raw: string): string {
@@ -201,13 +154,11 @@ const KNOWN_KEYS = [
 
 interface SentimentSignalsSectionProps {
   sentiment?: string | null;
-  sentimentConfidence?: number | null;
   signals?: Record<string, unknown> | null;
 }
 
 const SentimentSignalsSection = ({
   sentiment,
-  sentimentConfidence,
   signals: signalsProp,
 }: SentimentSignalsSectionProps) => {
   const signals: Record<string, unknown> =
@@ -216,7 +167,6 @@ const SentimentSignalsSection = ({
   if (
     !shouldShowSentimentAnalysis({
       sentiment,
-      sentiment_confidence: sentimentConfidence,
       sentiment_signals: signalsProp,
     })
   ) {
@@ -228,12 +178,9 @@ const SentimentSignalsSection = ({
   const toneStr = hasTone ? formatTone(signals.tone) : '';
   const engagementStr = hasEngagement ? formatEngagement(signals.engagement) : '';
   const hasSentimentEnum = sentiment != null && String(sentiment).trim() !== '';
-  const hasConfidence =
-    sentimentConfidence != null && Number.isFinite(sentimentConfidence);
 
   const showMetrics =
     hasSentimentEnum ||
-    hasConfidence ||
     (hasTone && toneStr) ||
     (hasEngagement && engagementStr);
 
@@ -293,17 +240,6 @@ const SentimentSignalsSection = ({
                 <MetricRow label={INFO_SENTIMENT_CLASSIFICATION}>
                   <span className={sentimentBadgeClass(String(sentiment))}>
                     {formatSentimentEnum(String(sentiment))}
-                  </span>
-                </MetricRow>
-              )}
-              {hasConfidence && (
-                <MetricRow label={INFO_SENTIMENT_CONFIDENCE}>
-                  <span
-                    className={confidenceBadgeClass(
-                      confidenceBand(sentimentConfidence as number)
-                    )}
-                  >
-                    {formatConfidence(sentimentConfidence as number)}
                   </span>
                 </MetricRow>
               )}

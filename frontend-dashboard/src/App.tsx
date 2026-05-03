@@ -5,6 +5,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CandidatesList = lazy(() => import('./pages/CandidatesList'));
 const CandidateDetail = lazy(() => import('./pages/CandidateDetail'));
 const CreateCandidate = lazy(() => import('./pages/CreateCandidate'));
+const TournamentsPage = lazy(() => import('./pages/TournamentsPage'));
 
 import Layout from './components/layout/Layout';
 
@@ -28,6 +29,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Navigate to="/" replace />} />
           <Route path="candidates" element={<CandidatesList />} />
+          <Route path="tournaments" element={<TournamentsPage />} />
           <Route path="candidates/new" element={<CreateCandidate />} />
           <Route path="candidates/:id" element={<CandidateDetail />} />
           <Route path="loans" element={<Navigate to="/candidates" replace />} />

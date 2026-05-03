@@ -13,6 +13,7 @@ export const NAV_CONTEXT_LINE = 'Grupo Sazón · Screening repartidores';
 
 export const NAV_HOME = 'Inicio';
 export const NAV_CANDIDATES = 'Candidatos';
+export const NAV_TOURNAMENTS = 'Torneos';
 export const NAV_NEW_CANDIDATE = 'Nuevo candidato';
 
 export const FILTER_BY_COUNTRY = 'Filtrar por país';
@@ -52,6 +53,24 @@ export const LIST_BTN_NEW = '+ Nuevo candidato';
 export const LIST_SHOWING = (shown: number, total: number) =>
   `Mostrando ${shown} de ${total} candidatos`;
 export const LIST_FILTERS_ACTIVE = 'Filtros activos';
+
+export const TOURNAMENTS_TITLE = 'Torneos de ranking';
+export const TOURNAMENTS_SUBTITLE =
+  'Listado de mini-torneos listwise, más recientes primero.';
+export const TOURNAMENTS_COL_CREATED = 'Fecha';
+export const TOURNAMENTS_COL_RUN = 'Corrida';
+export const TOURNAMENTS_COL_TOURNAMENT = 'Torneo';
+export const TOURNAMENTS_COL_K = 'En grupo';
+export const TOURNAMENTS_COL_MODEL = 'Modelo';
+export const TOURNAMENTS_COL_ORDER = 'Orden LLM';
+export const TOURNAMENTS_COL_TRACE = 'Razonamiento (subagente)';
+export const TOURNAMENTS_EMPTY = 'Aún no hay torneos en base de datos.';
+export const TOURNAMENTS_ERROR =
+  'No se pudieron cargar los torneos. Revisa la API o el proxy.';
+export const TOURNAMENTS_PREV = 'Anterior';
+export const TOURNAMENTS_NEXT = 'Siguiente';
+export const TOURNAMENTS_PAGINATION = (from: number, to: number, total: number) =>
+  `${from.toLocaleString('es-ES')}–${to.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')}`;
 
 export const FILTERS_LABEL_COUNTRY = 'País';
 export const FILTERS_ALL_COUNTRIES = 'Todos los países';
@@ -124,7 +143,6 @@ export const INFO_SECTION_SENTIMENT = 'Análisis de sentimientos';
 export const INFO_SECTION_SENTIMENT_HINT =
   'Automático sobre la conversación de screening (IA)';
 export const INFO_SENTIMENT_CLASSIFICATION = 'Clasificación de sentimiento';
-export const INFO_SENTIMENT_CONFIDENCE = 'Confianza del modelo';
 
 export const MODAL_STATUS_TITLE = 'Cambiar estado del candidato';
 export const MODAL_CURRENT_STATUS = 'Estado actual';
