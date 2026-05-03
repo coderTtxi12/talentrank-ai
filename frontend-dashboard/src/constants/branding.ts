@@ -22,7 +22,18 @@ export const CLEAR_FILTERS = 'Quitar filtros';
 export const DASH_TITLE = 'Panel';
 export const DASH_SUBTITLE =
   'Resumen del funnel de screening de candidatos (reparto)';
-export const DASH_BTN_NEW = '+ Nuevo candidato';
+export const DASH_BTN_NEW = 'Ejecutar Listwise + Plackett–Luce';
+export const DASH_RANK_MODAL_TITLE =
+  '¿Confirmas ejecutar Listwise + Plackett–Luce en el lote actual?';
+export const DASH_RANK_MODAL_BODY =
+  'Se encolará un trabajo en el API (ruta jobs/listwise). El worker clasificará candidatos en análisis de sentimiento (por defecto, todos los que estén en ese estado y el backend incluya en la cohorte). Solo continúa si este es el batch correcto.';
+export const DASH_RANK_MODAL_CANCEL = 'Cancelar';
+export const DASH_RANK_MODAL_CONFIRM = 'Sí, encolar trabajo';
+export const DASH_RANK_SUBMITTING = 'Encolando…';
+export const DASH_RANK_SUCCESS = (jobId: string) =>
+  `Trabajo encolado. ID: ${jobId.slice(0, 8)}…`;
+export const DASH_RANK_ERROR_GENERIC =
+  'No se pudo encolar el trabajo. Revisa la red o los logs del API.';
 export const DASH_STAT_TOTAL = 'Total candidatos';
 export const DASH_STAT_RISK = 'Puntuación de riesgo media';
 export const DASH_CHART_STATUS = 'Candidatos por estado';

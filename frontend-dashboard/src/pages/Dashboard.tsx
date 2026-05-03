@@ -1,7 +1,7 @@
 /**
  * Panel principal: estadísticas y candidatos recientes.
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -9,7 +9,7 @@ import {
   fetchMoreDashboardRecent,
   bootstrapDashboardRecent,
 } from '@/store/slices/candidatesSlice';
-import { Card, Button } from '@/components/ui';
+import { Card, Button, Modal } from '@/components/ui';
 import { StatusBadge } from '@/components/candidates';
 import { CandidateStatusTooltip } from '@/components/candidates/CandidateStatusTooltip';
 import {
@@ -23,6 +23,13 @@ import {
   DASH_TITLE,
   DASH_SUBTITLE,
   DASH_BTN_NEW,
+  DASH_RANK_MODAL_TITLE,
+  DASH_RANK_MODAL_BODY,
+  DASH_RANK_MODAL_CANCEL,
+  DASH_RANK_MODAL_CONFIRM,
+  DASH_RANK_SUBMITTING,
+  DASH_RANK_SUCCESS,
+  DASH_RANK_ERROR_GENERIC,
   DASH_STAT_TOTAL,
   DASH_STAT_RISK,
   DASH_CHART_STATUS,
@@ -37,6 +44,7 @@ import {
   TABLE_COL_DRIVERS_LICENSE,
   TABLE_COL_STATUS,
 } from '@/constants/branding';
+import { createListwiseJob } from '@/services/jobsApi';
 
 // Country info
 const countries: Record<CountryCode, { name: string; flag: string }> = {
@@ -61,6 +69,13 @@ const Dashboard = () => {
     recentNextCursor,
   } = useAppSelector((state) => state.candidates);
 
+  const [rankModalOpen, setRankModalOpen] = useState(false);
+  const [rankSubmitting, setRankSubmitting] = useState(false);
+  const [rankBanner, setRankBanner] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     dispatch(fetchStatistics(undefined));
     dispatch(bootstrapDashboardRecent(undefined));
@@ -80,12 +95,27 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-gray-900">{DASH_TITLE}</h1>
           <p className="text-gray-600">{DASH_SUBTITLE}</p>
         </div>
-        <Link
-          to="/candidates/new"
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          {DASH_BTN_NEW}
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          {rankBanner ? (
+            <p
+              className={`text-sm max-w-md text-right ${rankBanner.type === 'success' ? 'text-green-700' : 'text-red-600'}`}
+              role="status"
+            >
+              {rankBanner.text}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
+            disabled={rankSubmitting}
+            onClick={() => {
+              setRankBanner(null);
+              setRankModalOpen(true);
+            }}
+          >
+            {DASH_BTN_NEW}
+          </button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -282,6 +312,49 @@ const Dashboard = () => {
           </Link>
         </div>
       </Card>
+      <Modal
+        isOpen={rankModalOpen}
+        onClose={() => !rankSubmitting && setRankModalOpen(false)}
+        title={DASH_RANK_MODAL_TITLE}
+        size="md"
+      >
+        <p className="text-sm text-gray-600 leading-relaxed">{DASH_RANK_MODAL_BODY}</p>
+        <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={rankSubmitting}
+            onClick={() => setRankModalOpen(false)}
+          >
+            {DASH_RANK_MODAL_CANCEL}
+          </Button>
+          <Button
+            type="button"
+            disabled={rankSubmitting}
+            onClick={() => {
+              void (async () => {
+                setRankSubmitting(true);
+                setRankBanner(null);
+                try {
+                  const res = await createListwiseJob({});
+                  setRankModalOpen(false);
+                  setRankBanner({
+                    type: 'success',
+                    text: DASH_RANK_SUCCESS(res.job_id),
+                  });
+                } catch {
+                  setRankModalOpen(false);
+                  setRankBanner({ type: 'error', text: DASH_RANK_ERROR_GENERIC });
+                } finally {
+                  setRankSubmitting(false);
+                }
+              })();
+            }}
+          >
+            {rankSubmitting ? DASH_RANK_SUBMITTING : DASH_RANK_MODAL_CONFIRM}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

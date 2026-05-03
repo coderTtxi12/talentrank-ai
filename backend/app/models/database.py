@@ -131,6 +131,7 @@ class MessageRole(str, enum.Enum):
 class JobType(str, enum.Enum):
     SENTIMENT = "sentiment"
     RANKING = "ranking"
+    LISTWISE = "listwise"
     NUDGE = "nudge"
 
 
