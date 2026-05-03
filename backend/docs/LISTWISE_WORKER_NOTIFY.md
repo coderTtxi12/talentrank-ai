@@ -75,21 +75,20 @@ arranque.
 
 1. **Cohorte:** candidatos con `status = sentiment_analysis`, filtrados por
    `vacancy_id` opcional vía `conversations.vacancy_id`.
-2. **Ficha por candidato:** datos de `candidates`, transcripción reciente de
-   mensajes del último `conversation`, `sentiment_results.signals` (incl.
-   resumen post-conversación y `key_data_points` cuando existan).
-3. **Contexto JD:** texto plano de `docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`
-   (truncado para caber en prompt).
-4. **Orquestador (LLM con tools):** itera llamando a la herramienta
-   `run_group_ranking(candidate_ids, instructions)`. Cada invocación es un
-   **subagente** (otra llamada al LLM, sin tools) que devuelve un JSON con
-   `ordered_candidate_ids` y `rationale`. Las herramientas de un mismo turno se
-   ejecutan en paralelo con `asyncio.gather`.
+2. **Contexto JD:** texto plano de `docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`
+   (truncado). El **orquestador** solo recibe JD + lista de UUID (no fichas ni
+   transcripciones en su contexto).
+3. **Orquestador (LLM con tools):** itera llamando `run_group_ranking(candidate_ids, instructions)`.
+   Cada llamada puede llevar **`instructions` distintas** (prompt de ranking por torneo).
+4. **Por cada tool:** el backend vuelve a leer Postgres (ORM) con
+   `load_ranking_cards_for_ids`: candidato, transcripción del último `conversation`,
+   resultados de sentimiento (`sentiment_results` / `signals`), `post_conversation_summary`,
+   `key_data_points`, teléfono, email, disponibilidad, etc. Ese dossier + JD + `instructions` van al **subagente**
+   (otra llamada LLM, JSON `ordered_candidate_ids` + `rationale`). Varios tools
+   en un turno se ejecutan en paralelo con `asyncio.gather`.
 5. **Restricción ≥ 3 torneos por candidato:** el prompt del orquestador exige
    diseñar al menos tres apariciones por participante. Tras ejecutar, el worker
-   calcula en Python `coverage.appearances_by_candidate` y
-   `candidates_below_three_tournaments` para auditoría (si el modelo no cumple,
-   queda registrado en el resultado del job sin reintentar automáticamente).
+   calcula en Python `coverage` para auditoría.
 6. **Transición de estado:** si el pipeline termina bien, los candidatos de la
    cohorte pasan de `sentiment_analysis` a `listwise`. El resultado agregado se
    guarda en `jobs.payload.result`.

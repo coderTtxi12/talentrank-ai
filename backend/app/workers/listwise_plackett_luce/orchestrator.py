@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +12,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.workers.listwise_plackett_luce.cohort import load_ranking_cards_for_ids
 from app.workers.listwise_plackett_luce.subagent import (
     run_group_ranking_subagent,
     validate_uuid_list,
@@ -30,8 +32,8 @@ LISTWISE_ORCHESTRATOR_TOOLS: List[Dict[str, Any]] = [
         "function": {
             "name": "run_group_ranking",
             "description": (
-                "Ejecuta un mini-torneo: el subagente ordena el subconjunto de "
-                "candidatos de mejor a peor para el rol Grupo Sazón."
+                "Runs one mini-tournament: the sub-agent ranks this candidate subset "
+                "from best to worst fit for the Grupo Sazón role."
             ),
             "parameters": {
                 "type": "object",
@@ -39,13 +41,13 @@ LISTWISE_ORCHESTRATOR_TOOLS: List[Dict[str, Any]] = [
                     "candidate_ids": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "IDs UUID de candidatos en este mini-torneo.",
+                        "description": "Candidate UUID strings in this mini-tournament.",
                     },
                     "instructions": {
                         "type": "string",
                         "description": (
-                            "Prioridades y matices para este enfrentamiento "
-                            "(turnos críticos, experiencia, fit con JD, etc.)."
+                            "Ranking prompt **specific to this sub-agent call**: what to prioritize, "
+                            "tie-break rules, and tournament nuance (each call may use different text)."
                         ),
                     },
                 },
@@ -102,12 +104,8 @@ def _parse_arguments(raw: Optional[str]) -> Dict[str, Any]:
         return {}
 
 
-def _cohort_index(candidate_cards: Dict[str, Dict[str, Any]]) -> str:
-    rows = []
-    for cid, card in sorted(candidate_cards.items(), key=lambda x: x[0]):
-        name = card.get("full_name") or ""
-        rows.append(f"- {cid} | {name}")
-    return "\n".join(rows)
+def _roster_lines(candidate_ids: List[str]) -> str:
+    return "\n".join(f"- {cid}" for cid in sorted(set(candidate_ids)))
 
 
 def _coverage_report(
@@ -131,21 +129,39 @@ def _coverage_report(
 async def run_listwise_orchestrator(
     *,
     jd_context: str,
-    candidate_cards: Dict[str, Dict[str, Any]],
+    candidate_ids: List[str],
     max_steps: int = DEFAULT_MAX_STEPS,
 ) -> Dict[str, Any]:
-    """Run tool-aware orchestrator; returns tournament log + final assistant text."""
+    """Orchestrator: only JD + ID list in model context; each tool loads dossiers via ORM."""
 
-    all_ids = sorted(candidate_cards.keys())
+    all_ids = sorted(set(validate_uuid_list([str(x) for x in candidate_ids])))
+    if not all_ids:
+        return {
+            "final_summary": "",
+            "tournaments": [],
+            "coverage": {
+                "appearances_by_candidate": {},
+                "min_appearances": 0,
+                "candidates_below_three_tournaments": [],
+                "rule_satisfied": True,
+            },
+            "orch_steps_used": 0,
+            "error": "empty_cohort_ids",
+        }
+
+    allowed_set = set(all_ids)
     client = _get_client()
     tournament_log: List[Dict[str, Any]] = []
 
-    cohort_blurb = _cohort_index(candidate_cards)
+    roster = _roster_lines(all_ids)
     sys_extra = (
-        f"N={len(all_ids)} candidatos en cohorte.\n"
-        f"IDs válidos:\n{cohort_blurb}\n\n"
-        "Fichas JSON completas llegan implícitamente a cada subagente; diseña "
-        "torneos y llama `run_group_ranking`."
+        f"N={len(all_ids)} candidates. You only know their UUIDs (list below) and the user JD. "
+        "You do not receive transcripts or dossiers: each `run_group_ranking` call loads from "
+        "the database (ORM) the conversation, sentiment, post-conversation summary, key_data_points, "
+        "and remaining candidate fields, and passes them to the sub-agent together with your "
+        "`instructions` and the JD.\n"
+        "Valid IDs for this run:\n"
+        f"{roster}"
     )
 
     messages: List[Dict[str, Any]] = [
@@ -154,12 +170,10 @@ async def run_listwise_orchestrator(
         {
             "role": "user",
             "content": (
-                "<jd_context>\n"
-                f"{jd_context[:20000]}\n"
-                "</jd_context>\n"
-                "<candidate_profiles_json>\n"
-                f"{json.dumps(candidate_cards, ensure_ascii=False, default=str)[:48000]}\n"
-                "</candidate_profiles_json>"
+                f"<jd_context>\n{jd_context[:20000]}\n</jd_context>\n"
+                "<candidate_ids>\n"
+                f"{roster}\n"
+                "</candidate_ids>"
             ),
         },
     ]
@@ -199,7 +213,7 @@ async def run_listwise_orchestrator(
                 raw_ids = []
             cids = validate_uuid_list([str(x) for x in raw_ids])
             instructions = str(args.get("instructions") or "").strip()
-            unknown = [c for c in cids if c not in candidate_cards]
+            unknown = [c for c in cids if c not in allowed_set]
 
             if unknown or len(cids) < 1:
                 payload = {
@@ -220,6 +234,11 @@ async def run_listwise_orchestrator(
                     "tool_call_id": tc.id,
                     "content": json.dumps(payload, ensure_ascii=False),
                 }
+
+            uuid_list = [uuid.UUID(c) for c in cids]
+            candidate_cards = await asyncio.to_thread(
+                load_ranking_cards_for_ids, uuid_list
+            )
 
             sub = await run_group_ranking_subagent(
                 candidate_ids=cids,
@@ -251,4 +270,3 @@ async def run_listwise_orchestrator(
         "coverage": coverage,
         "orch_steps_used": steps_used,
     }
-

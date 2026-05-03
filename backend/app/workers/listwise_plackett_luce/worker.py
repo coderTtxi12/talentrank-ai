@@ -24,9 +24,11 @@ from app.core.logging import configure_logging, get_logger
 from app.models.database import Job, JobStatus, JobType
 from app.workers.listwise_plackett_luce.cohort import (
     advance_candidates_to_listwise_status,
-    build_candidate_ranking_card,
     list_candidate_ids_pending_listwise,
     read_jd_public_context,
+)
+from app.workers.listwise_plackett_luce.persistence import (
+    persist_listwise_orch_and_tournaments,
 )
 from app.workers.listwise_plackett_luce.orchestrator import run_listwise_orchestrator
 
@@ -119,6 +121,29 @@ def _vacancy_id_from_job_payload(payload: Any) -> Optional[uuid.UUID]:
         return None
 
 
+def _finalize_listwise_after_orchestrator_sync(
+    job_id: uuid.UUID,
+    vacancy_id: Optional[uuid.UUID],
+    candidate_ids: List[uuid.UUID],
+    orch: Dict[str, Any],
+) -> uuid.UUID:
+    """Persist ranking rows (orchestrator + tournaments), then advance candidate status."""
+
+    label = (settings.OPENAI_MODEL or "").strip() or "unknown"
+    with SessionLocal() as db:
+        run_id = persist_listwise_orch_and_tournaments(
+            db,
+            job_id=job_id,
+            vacancy_id=vacancy_id,
+            cohort_ids=candidate_ids,
+            orch=orch,
+            model_label=label,
+        )
+        advance_candidates_to_listwise_status(db, candidate_ids)
+        db.commit()
+        return run_id
+
+
 async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
     """After a successful claim, load cohort, run orchestrator, advance statuses."""
 
@@ -138,22 +163,25 @@ async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
             "message": "No candidates in sentiment_analysis for this scope.",
         }
 
-    cards: Dict[str, Dict[str, Any]] = {}
-    with SessionLocal() as db:
-        for cid in candidate_ids:
-            cards[str(cid)] = build_candidate_ranking_card(db, cid)
-
     jd = read_jd_public_context()
-    orch = await run_listwise_orchestrator(jd_context=jd, candidate_cards=cards)
+    orch = await run_listwise_orchestrator(
+        jd_context=jd,
+        candidate_ids=[str(c) for c in candidate_ids],
+    )
 
-    with SessionLocal() as db:
-        advance_candidates_to_listwise_status(db, candidate_ids)
-        db.commit()
+    run_id = await asyncio.to_thread(
+        _finalize_listwise_after_orchestrator_sync,
+        job_id,
+        vacancy_id,
+        candidate_ids,
+        orch,
+    )
 
     return {
         "job_id": str(job_id),
         "vacancy_id": str(vacancy_id) if vacancy_id else None,
         "cohort_candidate_ids": [str(c) for c in candidate_ids],
+        "ranking_run_id": str(run_id),
         "orchestrator": orch,
     }
 

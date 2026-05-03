@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.database import SessionLocal
 from app.models.database import (
     Candidate,
     CandidateStatus,
@@ -119,6 +120,8 @@ def build_candidate_ranking_card(db: Session, candidate_id: uuid.UUID) -> Dict[s
     return {
         "id": str(candidate_id),
         "full_name": cand.full_name,
+        "phone": cand.phone,
+        "email": cand.email,
         "language": cand.language.value if hasattr(cand.language, "value") else str(cand.language),
         "drivers_license": cand.drivers_license,
         "city_zone": cand.city_zone,
@@ -128,12 +131,29 @@ def build_candidate_ranking_card(db: Session, candidate_id: uuid.UUID) -> Dict[s
         "platforms": cand.platforms,
         "start_date": cand.start_date.isoformat() if cand.start_date is not None else None,
         "status": cand.status.value if hasattr(cand.status, "value") else str(cand.status),
+        "is_completed": cand.is_completed,
         "slot_uncertain": cand.slot_uncertain,
+        "created_at": cand.created_at.isoformat() if cand.created_at else None,
+        "conversation_id": str(conv.id) if conv is not None else None,
+        "session_id": conv.session_id if conv is not None else None,
+        "conversation_language": (
+            conv.language.value if conv is not None and hasattr(conv.language, "value") else None
+        ),
+        "conversation_channel": (
+            conv.channel.value if conv is not None and hasattr(conv.channel, "value") else None
+        ),
         "conversation_transcript": transcript,
         "sentiment": sentiment_block,
         "post_conversation_summary": post_summary,
         "key_data_points": key_points,
     }
+
+
+def load_ranking_cards_for_ids(candidate_ids: List[uuid.UUID]) -> Dict[str, Dict[str, Any]]:
+    """Carga fichas completas (ORM) solo para los UUID indicados — uso en subagentes."""
+
+    with SessionLocal() as db:
+        return {str(cid): build_candidate_ranking_card(db, cid) for cid in candidate_ids}
 
 
 def advance_candidates_to_listwise_status(db: Session, candidate_ids: List[uuid.UUID]) -> None:

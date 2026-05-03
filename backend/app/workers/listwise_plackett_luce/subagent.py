@@ -66,7 +66,7 @@ async def run_group_ranking_subagent(
         "candidates": {cid: candidate_cards.get(cid, {}) for cid in allowed},
     }
     user_content = (
-        "Ordena este grupo de candidatos según las instrucciones del orquestador.\n"
+        "Rank this candidate group per the orchestrator instructions and dossiers below.\n"
         f"<payload>{json.dumps(payload, ensure_ascii=False, default=str)}</payload>"
     )
 

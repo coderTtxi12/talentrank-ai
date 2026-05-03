@@ -511,15 +511,18 @@ class SentimentResult(Base):
 
 
 class RankingRun(Base):
-    """One full execution of the ranking pipeline for a vacancy."""
+    """One full execution of the ranking pipeline (listwise and/or Plackett–Luce).
+
+    ``vacancy_id`` may be NULL when a listwise job runs without a vacancy scope.
+    """
 
     __tablename__ = "ranking_runs"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    vacancy_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("vacancies.id"), nullable=False
+    vacancy_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vacancies.id"), nullable=True
     )
     rubric_version: Mapped[str] = mapped_column(String(40), nullable=False)
     pool_size: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -532,6 +535,9 @@ class RankingRun(Base):
         SAEnum(JobStatus, name="job_status_enum", values_callable=_enum_values),
         nullable=False,
         server_default=text("'pending'"),
+    )
+    orchestrator_output: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
 
     tournaments: Mapped[List["RankingTournament"]] = relationship(
@@ -567,6 +573,9 @@ class RankingTournament(Base):
     model: Mapped[str] = mapped_column(String(120), nullable=False)
     is_active_learning: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
+    )
+    llm_trace: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
