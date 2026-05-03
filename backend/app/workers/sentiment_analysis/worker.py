@@ -220,6 +220,12 @@ def _persist_sentiment_sync(
         signals = {"raw": signals}
     if envelope.get("reasoning"):
         signals = {**signals, "reasoning": envelope["reasoning"]}
+    pcs = envelope.get("post_conversation_summary")
+    if isinstance(pcs, str) and pcs.strip():
+        signals = {**signals, "post_conversation_summary": pcs.strip()}
+    kdp = envelope.get("key_data_points")
+    if isinstance(kdp, dict) and kdp:
+        signals = {**signals, "key_data_points": kdp}
 
     model_version = str(envelope.get("model_version") or settings.OPENAI_MODEL or "unknown")
 

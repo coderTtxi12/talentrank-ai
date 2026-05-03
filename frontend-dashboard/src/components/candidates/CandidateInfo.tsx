@@ -14,7 +14,7 @@ import {
   INFO_RISK_LABEL,
   INFO_REVIEW_BANNER,
   INFO_SECTION_APPLICANT,
-  INFO_SECTION_AMOUNTS,
+  INFO_SECTION_POST_CONVERSATION_SUMMARY,
   INFO_FULL_NAME,
   INFO_SECTION_TIMELINE,
   INFO_SECTION_BANKING,
@@ -103,6 +103,14 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
     </div>
   );
 
+  const sig = candidate.sentiment_signals;
+  const postConversationSummaryRaw =
+    sig && typeof sig === 'object'
+      ? (sig as Record<string, unknown>).post_conversation_summary
+      : undefined;
+  const postConversationSummary =
+    typeof postConversationSummaryRaw === 'string' ? postConversationSummaryRaw.trim() : '';
+
   return (
     <div className="space-y-6">
       {/* Status Section */}
@@ -163,19 +171,15 @@ const CandidateInfo = ({ candidate }: CandidateInfoProps) => {
         </div>
       </div>
 
-      {/* Importes */}
+      {/* Resumen tras screening (sentiment worker, si existe) */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">
-          {INFO_SECTION_AMOUNTS}
+          {INFO_SECTION_POST_CONVERSATION_SUMMARY}
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <InfoRow label="Importe solicitado">
-            {formatCurrency(candidate.amount_requested, candidate.currency)}
-          </InfoRow>
-          <InfoRow label="Divisa">{candidate.currency}</InfoRow>
-          <InfoRow label="Ingresos mensuales declarados">
-            {formatCurrency(candidate.monthly_income, candidate.currency)}
-          </InfoRow>
+          <p className="text-sm font-normal text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
+            {postConversationSummary || EM_DASH}
+          </p>
         </div>
       </div>
 

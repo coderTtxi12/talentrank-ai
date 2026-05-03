@@ -29,6 +29,18 @@ logger = get_logger(__name__)
 
 _ALLOWED_LABELS = {"positive", "neutral", "confused", "frustrated"}
 _ALLOWED_ENGAGEMENT = {"high", "medium", "low"}
+_ALLOWED_LICENSE = {"yes", "no", "unknown"}
+
+_KEY_DATA_POINT_FIELDS = (
+    "full_name",
+    "drivers_license",
+    "city_zone",
+    "availability",
+    "preferred_schedule",
+    "experience_years",
+    "platforms",
+    "start_date",
+)
 
 _client: Optional[AsyncOpenAI] = None
 
@@ -69,6 +81,76 @@ def _render_transcript(messages: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _normalize_license_answer(raw: Any) -> str | None:
+    """Map model output to canonical yes | no | unknown."""
+
+    if raw is None:
+        return None
+    s = str(raw).strip().lower()
+    if not s:
+        return None
+    if s in {"yes", "y", "true", "1", "sí", "si"}:
+        return "yes"
+    if s in {"no", "n", "false", "0"}:
+        return "no"
+    if s in {"unknown", "?", "unsure", "na", "n/a"}:
+        return "unknown"
+    if "no tengo" in s or "sin carnet" in s or "don't have" in s or "dont have" in s:
+        return "no"
+    if "tengo" in s and ("carnet" in s or "licen" in s):
+        return "yes"
+    return "unknown"
+
+
+def _normalize_key_data_points(raw: Any) -> Dict[str, Any]:
+    """Keep only Phase-2 screening keys; coerce simple types."""
+
+    if not isinstance(raw, dict):
+        return {}
+    out: Dict[str, Any] = {}
+    for field in _KEY_DATA_POINT_FIELDS:
+        if field not in raw:
+            continue
+        val = raw.get(field)
+        if val is None:
+            out[field] = None
+            continue
+        if field == "drivers_license":
+            lic = _normalize_license_answer(val)
+            out[field] = lic if lic in _ALLOWED_LICENSE else None
+            continue
+        if field == "experience_years":
+            if isinstance(val, bool):
+                continue
+            if isinstance(val, (int, float)):
+                out[field] = float(val)
+            elif isinstance(val, str) and val.strip():
+                out[field] = val.strip()
+            continue
+        if field == "platforms":
+            if isinstance(val, list):
+                plist = [
+                    str(x).strip()
+                    for x in val
+                    if str(x).strip()
+                ]
+                out[field] = plist if plist else None
+            elif isinstance(val, str) and val.strip():
+                out[field] = val.strip()
+            else:
+                out[field] = None
+            continue
+        if isinstance(val, str):
+            trimmed = val.strip()
+            out[field] = trimmed if trimmed else None
+        elif isinstance(val, (int, float)) and not isinstance(val, bool):
+            out[field] = val
+        else:
+            out[field] = str(val).strip() or None
+
+    return out
+
+
 def _coerce_envelope(data: Any) -> Dict[str, Any]:
     """Validate and normalize the model output."""
 
@@ -98,11 +180,20 @@ def _coerce_envelope(data: Any) -> Dict[str, Any]:
     signals.setdefault("evidence", [])
     signals.setdefault("notes", "")
 
+    summary_raw = data.get("post_conversation_summary")
+    summary = ""
+    if isinstance(summary_raw, str):
+        summary = summary_raw.strip()[:4000]
+
+    key_data_points = _normalize_key_data_points(data.get("key_data_points"))
+
     return {
         "sentiment": sentiment,
         "confidence": confidence,
         "signals": signals,
         "reasoning": str(data.get("reasoning") or "")[:1000],
+        "post_conversation_summary": summary,
+        "key_data_points": key_data_points,
     }
 
 
@@ -118,6 +209,8 @@ def _fallback_envelope(reason: str) -> Dict[str, Any]:
             "notes": f"fallback:{reason}",
         },
         "reasoning": f"fallback:{reason}",
+        "post_conversation_summary": "",
+        "key_data_points": {},
     }
 
 
@@ -145,7 +238,9 @@ async def analyze_conversation(
 ) -> Dict[str, Any]:
     """Run sentiment analysis over a finished conversation transcript.
 
-    Returns the structured envelope (see :data:`SENTIMENT_ANALYSIS_SYSTEM_PROMPT`).
+    Returns the structured envelope per :data:`SENTIMENT_ANALYSIS_SYSTEM_PROMPT`
+    (sentiment, confidence, signals, reasoning,
+    ``post_conversation_summary``, ``key_data_points``, ``model_version``).
     On any error or empty transcript, a low-confidence neutral fallback is
     returned instead of raising.
     """

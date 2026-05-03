@@ -104,7 +104,7 @@ export const INFO_RISK_LABEL = 'Puntuación de riesgo';
 export const INFO_REVIEW_BANNER =
   'Este candidato requiere revisión manual';
 export const INFO_SECTION_APPLICANT = 'Datos del candidato';
-export const INFO_SECTION_AMOUNTS = 'Importes declarados';
+export const INFO_SECTION_POST_CONVERSATION_SUMMARY = 'Resumen post-conversación';
 export const INFO_FULL_NAME = 'Nombre completo';
 export const INFO_SECTION_TIMELINE = 'Cronología';
 export const INFO_SECTION_BANKING = 'Información bancaria';

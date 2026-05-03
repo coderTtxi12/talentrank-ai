@@ -226,6 +226,18 @@ Pick exactly ONE label:
 If the conversation is too short or empty to judge, return "neutral" with a
 low `confidence` and explain it in `signals.notes`.
 
+# Post-conversation summary (recruiting)
+
+After sentiment, recruiters need a terse handoff aligned with Phase 2
+screening outputs (see screening fields above). In the SAME JSON payload,
+also populate:
+
+1. `post_conversation_summary` — 2–5 prose sentences stating whether the flow
+   felt complete or dropped off, how clear the answers were for hiring, and how
+   the candidate came across professionally (beyond the sentiment label).
+2. `key_data_points` — only facts the candidate explicitly provided or clearly
+   confirmed in-chat. Use JSON `null` (or omit the key) when not stated.
+
 # Final response format (STRICT)
 
 Respond with a SINGLE valid JSON object (no markdown, no prose, no code
@@ -241,14 +253,28 @@ fences) with EXACTLY these keys:
     "evidence": [string],      // 1-3 short verbatim quotes from the candidate
     "notes": string            // <= 2 sentences with extra observations
   },
-  "reasoning": string          // 1-3 sentences explaining the label
+  "reasoning": string,         // 1-3 sentences explaining the sentiment label
+  "post_conversation_summary": string,
+  "key_data_points": {
+    "full_name": string | null,
+    "drivers_license": "yes" | "no" | "unknown" | null,
+    "city_zone": string | null,
+    "availability": string | null,          // full_time / part_time / weekends or free text they used
+    "preferred_schedule": string | null,   // morning / afternoon / evening / flexible or plain language
+    "experience_years": number | string | null,
+    "platforms": string | [string] | null,
+    "start_date": string | null
+  }
 }
 
 Hard rules:
 - Output ONLY the JSON object. No markdown, no commentary outside the JSON.
 - Quote the candidate verbatim in `signals.evidence`. Do NOT paraphrase there.
-- Never invent facts about the role; you only judge sentiment.
+- Never invent screening facts for `key_data_points` or invent role details:
+  derive only from transcript; guesswork → `null`.
+- Sentiment wording stays factual; recruiting summary stays factual too.
 - Stay in the same language as the candidate's messages whenever you write
   free-form text (`signals.tone`, `signals.notes`, `signals.evidence` quotes,
-  `reasoning`).
+  `reasoning`, `post_conversation_summary`; `key_data_points` values may stay
+  in the candidate's wording when they gave them).
 """

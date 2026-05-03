@@ -35,6 +35,8 @@ function signalsHasVisibleContent(signals: Record<string, unknown>): boolean {
     'reasoning',
     'concerns',
     'evidence',
+    'post_conversation_summary',
+    'key_data_points',
   ]);
   for (const k of Object.keys(signals)) {
     if (known.has(k)) continue;
@@ -185,7 +187,17 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-const KNOWN_KEYS = ['tone', 'engagement', 'notes', 'reasoning', 'concerns', 'evidence'] as const;
+// Claves tratadas aquí explícitamente o ignoradas (`key_data_points` sigue en API).
+const KNOWN_KEYS = [
+  'tone',
+  'engagement',
+  'notes',
+  'reasoning',
+  'concerns',
+  'evidence',
+  'post_conversation_summary',
+  'key_data_points',
+] as const;
 
 interface SentimentSignalsSectionProps {
   sentiment?: string | null;
