@@ -1,4 +1,9 @@
-"""Public schema for listwise / ranking tournament rows (dashboard read)."""
+"""Read models for listwise ranking data shown on the recruiter dashboard.
+
+Maps persisted ``ranking_runs``, ``ranking_tournaments``, and ``ranking_results``
+rows into API-friendly shapes: tournament orderings (UUID + display name),
+Plackett–Luce utilities, and paginated run groupings.
+"""
 
 from __future__ import annotations
 
@@ -30,7 +35,7 @@ class RankingTournamentPublic(BaseModel):
 
 
 class RankingTournamentsPage(BaseModel):
-    """Offset/limit page of tournaments (newest first globally)."""
+    """Flat list of tournaments across all runs (newest first), with total count for UI paging."""
 
     items: List[RankingTournamentPublic] = Field(default_factory=list)
     total: int = Field(ge=0)
@@ -81,7 +86,7 @@ class RankingRunTournamentsGroup(BaseModel):
 
 
 class RankingTournamentsByRunPage(BaseModel):
-    """Paginated ranking **runs**; each group lists tournaments for that run."""
+    """Offset/limit page where each item is one ``RankingRun`` and nested tournaments + PL rows."""
 
     groups: List[RankingRunTournamentsGroup] = Field(default_factory=list)
     total_runs: int = Field(ge=0)

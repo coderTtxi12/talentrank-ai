@@ -1,4 +1,8 @@
-"""Shared AsyncOpenAI client for listwise worker (longer timeout than default API routes)."""
+"""Shared AsyncOpenAI client for the listwise worker.
+
+Uses ``OPENAI_LISTWISE_TIMEOUT_SECONDS`` and the same API key/model as the HTTP
+app, but with a longer timeout suited to large orchestrator / sub-agent payloads.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ _client: Optional[AsyncOpenAI] = None
 
 
 def get_listwise_async_client() -> AsyncOpenAI:
+    """Singleton client with listwise timeout and LangSmith wrapping."""
+
     global _client
     if _client is None:
         if not settings.OPENAI_API_KEY:

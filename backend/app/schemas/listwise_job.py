@@ -1,4 +1,8 @@
-"""Schemas for enqueueing listwise ranking jobs."""
+"""Request and response models for **POST** enqueue of listwise ranking jobs.
+
+Clients create a ``jobs`` row with ``job_type=listwise``; workers react via
+``NOTIFY`` on ``listen_channel``.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +22,8 @@ class CreateListwiseJobRequest(BaseModel):
 
 
 class CreateListwiseJobResponse(BaseModel):
+    """Acknowledgement after enqueue: new job id, initial status, NOTIFY channel name."""
+
     job_id: uuid.UUID
     status: str = Field(default="pending", description="Initial queue status.")
     listen_channel: str = Field(

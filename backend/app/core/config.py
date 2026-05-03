@@ -1,3 +1,13 @@
+"""Central configuration: environment-backed settings and a cached singleton.
+
+`Settings` reads `backend/.env` (when running locally) plus process environment.
+Import `settings` for the process-wide instance, or call `get_settings()` if you
+need an explicit accessor (both use the same `@lru_cache` instance).
+
+Routers, workers, and services should depend on this module rather than calling
+`os.environ` directly so defaults and validation stay in one place.
+"""
+
 from functools import lru_cache
 from typing import List, Optional
 
@@ -6,7 +16,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables / .env file."""
+    """Typed application settings (Pydantic BaseSettings).
+
+    Values come from environment variables with optional `env_file` (`.env`).
+    Field names map to env keys case-insensitively (e.g. `DATABASE_URL`).
+    """
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -137,6 +151,8 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return the cached `Settings` instance (one per process after first call)."""
+
     return Settings()
 
 

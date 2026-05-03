@@ -1,8 +1,13 @@
 """Listwise ranking worker: LISTEN/NOTIFY on new jobs + orchestrated LLM tournaments.
 
-Wakes on `listwise_job_pending` when a row is inserted into `jobs` with
-`job_type = listwise`. Claims work with a single atomic UPDATE so concurrent
-workers never process the same job twice.
+Wakes on ``listwise_job_pending`` when a row is inserted into ``jobs`` with
+``job_type = listwise``. Claims work with a single atomic ``UPDATE`` so concurrent
+workers never process the same job twice. On startup, drains any **pending** rows
+inserted while the process was down (one pass, not polling).
+
+Local run::
+
+    python -m app.workers.listwise_plackett_luce.worker
 """
 
 from __future__ import annotations
@@ -44,6 +49,8 @@ _MAX_BACKOFF_SECONDS = 30.0
 
 
 def _psycopg_dsn() -> str:
+    """Strip SQLAlchemy's ``+psycopg`` driver prefix so psycopg accepts the DSN."""
+
     url = settings.DATABASE_URL
     if url.startswith("postgresql+psycopg://"):
         return "postgresql://" + url[len("postgresql+psycopg://") :]
@@ -76,6 +83,8 @@ def claim_listwise_job_sync(job_id: uuid.UUID, worker_id: str) -> bool:
 
 
 def list_pending_listwise_job_ids_sync() -> List[uuid.UUID]:
+    """FIFO ids of listwise jobs still in ``pending`` (used at worker startup drain)."""
+
     with SessionLocal() as db:
         rows = db.execute(
             select(Job.id)
@@ -89,6 +98,8 @@ def list_pending_listwise_job_ids_sync() -> List[uuid.UUID]:
 
 
 def complete_listwise_job_sync(job_id: uuid.UUID, result: Dict[str, Any]) -> None:
+    """Mark job ``done`` and attach JSON ``result`` under ``payload['result']``."""
+
     with SessionLocal() as db:
         job = db.get(Job, job_id)
         if job is None:
@@ -101,6 +112,8 @@ def complete_listwise_job_sync(job_id: uuid.UUID, result: Dict[str, Any]) -> Non
 
 
 def fail_listwise_job_sync(job_id: uuid.UUID, message: str) -> None:
+    """Mark job ``failed`` and store a truncated error string on ``last_error``."""
+
     with SessionLocal() as db:
         job = db.get(Job, job_id)
         if job is None:
@@ -111,6 +124,8 @@ def fail_listwise_job_sync(job_id: uuid.UUID, message: str) -> None:
 
 
 def _vacancy_id_from_job_payload(payload: Any) -> Optional[uuid.UUID]:
+    """Optional ``vacancy_id`` from ``Job.payload`` for cohort scoping."""
+
     if not isinstance(payload, dict):
         return None
     raw = payload.get("vacancy_id")
@@ -214,6 +229,8 @@ async def _run_listwise_pipeline(job_id: uuid.UUID) -> Dict[str, Any]:
 
 
 async def _handle_job_notification(payload: str) -> None:
+    """Parse job UUID from NOTIFY, claim row, run pipeline, complete or fail the job."""
+
     raw = (payload or "").strip()
     if not raw:
         logger.warning("[%s] NOTIFY con payload vacío", WORKER_NAME)
@@ -243,6 +260,8 @@ async def _handle_job_notification(payload: str) -> None:
 
 
 async def _drain_pending_before_listen() -> None:
+    """Process backlog of pending listwise jobs once before subscribing to NOTIFY."""
+
     ids = await asyncio.to_thread(list_pending_listwise_job_ids_sync)
     if not ids:
         return
@@ -252,6 +271,8 @@ async def _drain_pending_before_listen() -> None:
 
 
 async def _listen_loop(stop_event: asyncio.Event) -> None:
+    """Block on ``LISTEN listwise_job_pending`` until stop or disconnect."""
+
     dsn = _psycopg_dsn()
     logger.info("[%s] conectando a Postgres LISTEN %s", WORKER_NAME, CHANNEL)
 
@@ -284,6 +305,8 @@ async def _listen_loop(stop_event: asyncio.Event) -> None:
 
 
 async def run() -> None:
+    """Configure logging, register signals, drain backlog, then supervised LISTEN loop."""
+
     configure_logging()
     logger.info("Starting %s worker_id=%s", WORKER_NAME, WORKER_ID)
 
@@ -326,6 +349,8 @@ async def run() -> None:
 
 
 def main() -> None:
+    """Process entrypoint for ``python -m app.workers.listwise_plackett_luce.worker``."""
+
     asyncio.run(run())
 
 

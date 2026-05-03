@@ -1,3 +1,9 @@
+"""Health check response schema for ``GET /api/v1/health``.
+
+Used by load balancers and docker-compose healthchecks to verify the process
+is up and optionally to report dependency status in the future.
+"""
+
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -5,6 +11,8 @@ from pydantic import BaseModel, Field
 
 
 class HealthStatus(str, Enum):
+    """Coarse readiness: ``ok`` = serving, ``degraded`` / ``down`` = not ready."""
+
     OK = "ok"
     DEGRADED = "degraded"
     DOWN = "down"

@@ -311,7 +311,7 @@ async def _phase2_sentiment_analysis(candidate_id: uuid.UUID) -> None:
 
 
 async def _handle_notification(payload: str) -> None:
-    """Acciones cuando un candidato marca screening completado."""
+    """Handle ``candidate_completed`` NOTIFY: parse UUID, run phase 1 then phase 2 if eligible."""
 
     raw = (payload or "").strip()
     if not raw:
@@ -328,8 +328,7 @@ async def _handle_notification(payload: str) -> None:
         _phase1_hard_filters_sync, candidate_id
     )
     if not passed_hard_filters:
-        # Candidato no encontrado, sin screening completo, o quedó HARD_DISQ:
-        # no gastamos LLM en sentiment analysis.
+        # Candidate missing, incomplete screening, or HARD_DISQ — skip LLM sentiment work.
         return
 
     try:
@@ -423,6 +422,8 @@ async def run() -> None:
 
 
 def main() -> None:
+    """CLI entrypoint for ``python -m app.workers.sentiment_analysis.worker``."""
+
     asyncio.run(run())
 
 

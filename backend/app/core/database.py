@@ -1,7 +1,13 @@
-"""SQLAlchemy engine + session factory.
+"""SQLAlchemy engine and session factory (sync).
 
-We use synchronous SQLAlchemy 2.0 with `psycopg` (driver `postgresql+psycopg`).
-Async can be added later behind the same interface.
+Uses SQLAlchemy 2.0 with the `postgresql+psycopg` driver. The shared `engine`
+and `SessionLocal` back:
+
+- **FastAPI:** `get_db()` yields one session per request (dependency injection).
+- **Workers / scripts:** open `SessionLocal()` directly or use a context manager
+  and close when done.
+
+Keep sessions short-lived; pool sizing comes from `Settings.DB_*`.
 """
 
 from __future__ import annotations

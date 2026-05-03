@@ -34,10 +34,14 @@ def _embedding_function() -> EmbeddingFunction:
 
 @lru_cache
 def get_client() -> chromadb.api.ClientAPI:
+    """Process-wide Chroma persistent client rooted at ``CHROMA_PERSIST_DIR``."""
+
     return chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
 
 
 def get_collection(name: Optional[str] = None):
+    """Get or create a collection with OpenAI embedding function and cosine HNSW space."""
+
     coll_name = name or settings.CHROMA_COLLECTION_KB
     client = get_client()
     return client.get_or_create_collection(

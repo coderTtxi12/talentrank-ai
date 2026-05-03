@@ -127,6 +127,8 @@ def _candidate_status_or_none(value: Any) -> Optional[CandidateStatus]:
 
 
 async def get_state_redis(session_id: str) -> Dict[str, Any]:
+    """Load JSON screening state blob from Redis, or ``{}`` if missing/corrupt."""
+
     redis = get_redis()
     raw = await redis.get(_state_key(session_id))  # type: ignore[misc]
     if not raw:
@@ -174,6 +176,8 @@ async def update_state_redis(
 
 
 def _read_state_pg_sync(session_id: str) -> Dict[str, Any]:
+    """Blocking read of candidate fields via ``conversations.session_id`` chain."""
+
     with SessionLocal() as db:
         conv = db.scalar(
             select(Conversation).where(Conversation.session_id == session_id)
@@ -207,6 +211,8 @@ def _read_state_pg_sync(session_id: str) -> Dict[str, Any]:
 
 
 async def get_state_db(session_id: str) -> Dict[str, Any]:
+    """Async wrapper around :func:`_read_state_pg_sync` (Postgres fallback)."""
+
     return await asyncio.to_thread(_read_state_pg_sync, session_id)
 
 
@@ -242,6 +248,8 @@ def _update_state_pg_sync(
     candidate_status_hint: str,
     is_completed: bool,
 ) -> Dict[str, Any]:
+    """Merge updates into the linked ``Candidate``, commit, return new view + status delta for NOTIFY."""
+
     with SessionLocal() as db:
         conv = db.scalar(
             select(Conversation).where(Conversation.session_id == session_id)
@@ -350,6 +358,8 @@ async def update_state_db(
     candidate_status_hint: str = "",
     is_completed: bool = False,
 ) -> Dict[str, Any]:
+    """Persist merged screening fields + optional status / completion flags to Postgres."""
+
     if not isinstance(updates, dict):
         raise ValueError("updates must be a JSON object")
     return await asyncio.to_thread(

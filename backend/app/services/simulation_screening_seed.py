@@ -1,7 +1,12 @@
-"""Insert realistic synthetic screening data: candidates, chats, sentiment rows.
+"""Bulk synthetic data for local QA: candidates, chats, and sentiment rows.
 
-Simulates outcomes **after** the screening agent and (for qualifying rows) the sentiment
-analysis step—**without** calling OpenAI or touching listwise / ranking tables.
+Builds realistic **Spanish** screening transcripts and post-screening outcomes as if
+the screening agent and (when applicable) the sentiment worker had already run—
+**without** calling OpenAI or writing listwise/ranking tables.
+
+HTTP access is gated by ``ALLOW_SIMULATION_SEED``. Seeded rows are marked via
+``captured_data.simulation_batch`` and ``@mock.orbio.test`` emails; use
+:func:`purge_simulation_seed_data` to tear down.
 """
 
 from __future__ import annotations
@@ -38,7 +43,7 @@ from app.workers.sentiment_analysis.grupo_sazon_coverage_cities import (
 
 MODEL_LABEL = "simulation/screening-seed-v1"
 
-# Ciudades fuera de cobertura (no aparecen en GRUPO_SAZON_PUBLIC_INFO_ES.txt lists).
+# Cities outside coverage (not listed in GRUPO_SAZON_PUBLIC_INFO_ES.txt).
 OUT_OF_COVERAGE_CITIES: Tuple[str, ...] = (
     "Logroño, La Rioja",
     "Pachuca de Soto, Hidalgo",
@@ -93,7 +98,7 @@ def _utc_today() -> date:
 
 
 def _pick_start_date(rng: random.Random, today: date) -> date:
-    """Entre ~5 días y ~12 semanas; a veces un poco más lejos si negocia preaviso."""
+    """Roughly 5 days to ~12 weeks from today; occasionally longer if negotiating notice."""
     if rng.random() < 0.18:
         days = rng.randint(21, 55)
     elif rng.random() < 0.1:
@@ -423,7 +428,7 @@ def _sentiment_bundle(
 
 
 def _hard_disq_slot_counts(count: int) -> tuple[int, int]:
-    """Cuántos índices van a HARD_DISQ por carnet / ciudad. Escala con ``count`` (p. ej. 10 -> 2+2)."""
+    """How many synthetic rows get HARD_DISQ for license vs. city. Scales with ``count`` (e.g. 10 -> 2+2)."""
 
     if count < 1:
         return 0, 0
@@ -495,7 +500,7 @@ def seed_screening_simulation_batch(
 
         start_date = _pick_start_date(rng, today)
 
-        # Requisitos duros (alineado con worker fase 1): solo licencia + ciudad.
+        # Hard requirements (aligned with phase-1 worker): license and city only.
         disq_mode = 0  # 0 none, 1 no license, 2 bad city
         if i < n_lic_disq:
             disq_mode = 1

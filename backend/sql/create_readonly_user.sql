@@ -1,1 +1,0 @@
--- Create a read-only DB user. Placeholder.

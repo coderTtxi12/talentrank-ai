@@ -1,50 +1,49 @@
-# Listwise worker: NOTIFY, cola `jobs` y exclusión mutua
+# Listwise worker: NOTIFY, `jobs` queue, and mutual exclusion
 
-Este documento describe cómo encola el ranking listwise desde la API, cómo el
-worker despierta sin polling continuo, y cómo se evita que dos procesos
-ejecuten el mismo trabajo.
+This document explains how listwise ranking jobs are enqueued from the API, how the
+worker wakes without continuous polling, and how duplicate execution of the same job
+is prevented.
 
-## 1. Encolado desde la API
+## 1. Enqueueing from the API
 
 - **Endpoint:** `POST /api/v1/jobs/listwise`
-- **Cuerpo opcional:** `{ "vacancy_id": "<uuid>" }` — si está presente, la cohorte
-  son candidatos en `sentiment_analysis` con al menos una `conversations` ligada
-  a esa vacante; si se omite, se consideran todos los que estén en
-  `sentiment_analysis` (conversación asociada).
-- **Efecto:** `INSERT` en `jobs` con `job_type = listwise` y `status = pending`.
+- **Optional body:** `{ "vacancy_id": "<uuid>" }` — when present, the cohort is
+  candidates in `sentiment_analysis` with at least one `conversations` row tied
+  to that vacancy; when omitted, everyone currently in `sentiment_analysis` (with
+  an associated conversation) is considered.
+- **Effect:** `INSERT` into `jobs` with `job_type = listwise` and `status = pending`.
 
-La migración `0004_listwise_job_type_and_notify.py` añade el valor de enum
-`listwise` a `job_type_enum` y un trigger `AFTER INSERT` que emite:
+Migration `0004_listwise_job_type_and_notify.py` adds the `listwise` value to
+`job_type_enum` and an `AFTER INSERT` trigger that emits:
 
 ```text
 NOTIFY listwise_job_pending, '<job_uuid>';
 ```
 
-solo cuando el tipo del nuevo registro es `listwise`.
+only when the new row’s type is `listwise`.
 
-## 2. Por qué no hay polling constante
+## 2. Why there is no constant polling
 
-El proceso `python -m app.workers.listwise_plackett_luce.worker` abre una
-conexión dedicada en autocommit (psycopg) y ejecuta `LISTEN listwise_job_pending`.
-Queda bloqueado en `conn.notifies()` hasta que Postgres entrega un aviso: en
-ese momento el bucle asyncio despierta y procesa **solo** el `job_id` recibido.
+The process `python -m app.workers.listwise_plackett_luce.worker` opens a dedicated
+autocommit connection (psycopg) and runs `LISTEN listwise_job_pending`.
+It blocks on `conn.notifies()` until PostgreSQL delivers a notification; the asyncio
+loop then wakes and processes **only** the received `job_id`.
 
-Esto es el mismo patrón que el worker de análisis de sentimiento con el canal
-`candidate_completed`.
+This mirrors the sentiment-analysis worker pattern on channel `candidate_completed`.
 
-### Arranque y trabajos atrás
+### Startup and backlog
 
-Para no perder filas insertadas mientras el worker estaba caído, al arrancar se
-hace **un** barrido: `SELECT id FROM jobs WHERE job_type = listwise AND status = pending`
-ordenado por `created_at`. Cada id se procesa con la misma rutina que un NOTIFY.
-No es un bucle de polling periódico; solo ocurre al inicio del proceso.
+To avoid losing rows inserted while the worker was down, on startup it performs **one**
+sweep: `SELECT id FROM jobs WHERE job_type = listwise AND status = pending`
+ordered by `created_at`. Each id is processed with the same routine as for NOTIFY.
+There is no periodic polling loop; this happens once at process start.
 
-## 3. Una sola ejecución por `job_id` (anti doble proceso)
+## 3. Single execution per `job_id` (anti double-run)
 
-Varios workers pueden estar escuchando el mismo canal. Todos reciben el mismo
-`NOTIFY`, pero solo uno debe ejecutar el pipeline.
+Several workers may listen on the same channel. They all receive the same `NOTIFY`,
+but only one should run the pipeline.
 
-**Mecanismo:** `UPDATE` condicional en una sola sentencia SQL:
+**Mechanism:** conditional `UPDATE` in a single SQL statement:
 
 ```sql
 UPDATE jobs
@@ -57,47 +56,43 @@ WHERE id = :job_id
   AND status = 'pending';
 ```
 
-En SQLAlchemy:
+In SQLAlchemy:
 
 ```python
 update(Job).where(...).values(...)
 ```
 
-- Si **una** fila cambia (`rowcount == 1`), este proceso ha reclamado el trabajo
-  y ejecuta el ranking listwise.
-- Si **cero** filas, otro worker ya pasó el trabajo a `running`, o el job no
-  existía / no estaba pendiente: este proceso sale sin hacer nada.
+- If **one** row changes (`rowcount == 1`), this process claimed the job and runs
+  listwise ranking.
+- If **zero** rows, another worker already moved the job to `running`, or the job
+  did not exist / was not pending: this process exits without work.
 
-Así se evita doble ejecución incluso con NOTIFY duplicado o competencia en el
-arranque.
+That prevents double execution even with duplicate NOTIFY or races at startup.
 
-## 4. Fase 1 del pipeline (datos → orquestador → subagentes)
+## 4. Pipeline phase 1 (data → orchestrator → sub-agents)
 
-1. **Cohorte:** candidatos con `status = sentiment_analysis`, filtrados por
-   `vacancy_id` opcional vía `conversations.vacancy_id`.
-2. **Contexto JD:** texto plano de `docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`
-   (truncado). El **orquestador** solo recibe JD + lista de UUID (no fichas ni
-   transcripciones en su contexto).
-3. **Orquestador (LLM con tools):** itera llamando `run_group_ranking(candidate_ids, instructions)`.
-   Cada llamada puede llevar **`instructions` distintas** (prompt de ranking por torneo).
-4. **Por cada tool:** el backend vuelve a leer Postgres (ORM) con
-   `load_ranking_cards_for_ids`: candidato, transcripción del último `conversation`,
-   resultados de sentimiento (`sentiment_results` / `signals`), `post_conversation_summary`,
-   `key_data_points`, teléfono, email, disponibilidad, etc. Ese dossier + JD + `instructions` van al **subagente**
-   (otra llamada LLM, JSON `ordered_candidate_ids` + `rationale`). Varios tools
-   en un turno se ejecutan en paralelo con `asyncio.gather`.
-5. **Restricción ≥ 3 torneos por candidato:** el prompt del orquestador exige
-   diseñar al menos tres apariciones por participante. Tras ejecutar, el worker
-   calcula en Python `coverage` para auditoría.
-6. **Transición de estado:** si el pipeline termina bien, los candidatos de la
-   cohorte pasan de `sentiment_analysis` a `listwise`. El resultado agregado se
-   guarda en `jobs.payload.result`.
+1. **Cohort:** candidates with `status = sentiment_analysis`, optionally filtered by
+   `vacancy_id` via `conversations.vacancy_id`.
+2. **JD context:** plain text from `docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt` (truncated).
+   The **orchestrator** only receives JD + UUID list (no cards or transcripts in its context).
+3. **Orchestrator (LLM with tools):** iterates by calling `run_group_ranking(candidate_ids, instructions)`.
+   Each call may use **different `instructions`** (per-tournament ranking prompt).
+4. **Per tool call:** the backend re-reads Postgres (ORM) with `load_ranking_cards_for_ids`:
+   candidate, latest `conversation` transcript, sentiment (`sentiment_results` / `signals`),
+   `post_conversation_summary`, `key_data_points`, phone, email, availability, etc.
+   That dossier + JD + `instructions` goes to the **sub-agent** (another LLM call,
+   JSON `ordered_candidate_ids` + `rationale`). Multiple tools in one turn run in parallel
+   via `asyncio.gather`.
+5. **≥ 3 tournaments per candidate:** the orchestrator prompt requires at least three
+   appearances per participant. After execution, the worker computes Python `coverage` for auditing.
+6. **Status transition:** if the pipeline succeeds, cohort candidates move from
+   `sentiment_analysis` to `listwise`. The aggregated result is stored in `jobs.payload.result`.
 
-## 5. Resumen operativo
+## 5. Operational summary
 
-| Pieza | Rol |
+| Piece | Role |
 |--------|-----|
-| Trigger `listwise_job_pending_notify` | Despierta workers en tiempo real. |
-| `LISTEN listwise_job_pending` | Sin polling en caliente. |
-| `UPDATE … WHERE status = pending` | Un solo ganador por job. |
-| Orquestador + tool → subagente | Misma idea que `llm_client.run_agent`, pero la herramienta es una segunda llamada LLM. |
+| Trigger `listwise_job_pending_notify` | Wakes workers in real time. |
+| `LISTEN listwise_job_pending` | No hot-path polling. |
+| `UPDATE … WHERE status = pending` | Single winner per job. |
+| Orchestrator + tool → sub-agent | Same idea as `llm_client.run_agent`, but the tool is a second LLM call. |

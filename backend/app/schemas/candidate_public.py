@@ -56,7 +56,10 @@ class CandidatePublic(BaseModel):
 
 
 class CandidatesCursorPage(BaseModel):
-    """Cursor-paginated list (see ENDPOINT_RULES.md)."""
+    """Cursor-paginated candidate list: stable ordering, opaque ``next_cursor`` token.
+
+    See ``ENDPOINT_RULES.md`` for cursor encoding and filter semantics.
+    """
 
     items: list[CandidatePublic]
     next_cursor: Optional[str] = None

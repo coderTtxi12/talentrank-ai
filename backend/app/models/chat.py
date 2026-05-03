@@ -1,3 +1,11 @@
+"""Pydantic models for the public chat HTTP API (request/response bodies).
+
+These are **not** SQLAlchemy models; they validate JSON from clients and shape
+the screening agent's structured output (`AgentEnvelope`). Literal aliases below
+mirror string contracts used in Postgres enums and in agent prompts for stable
+OpenAPI / client typings.
+"""
+
 from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -88,5 +96,7 @@ class ChatResponse(BaseModel):
 
     @classmethod
     def from_envelope(cls, session_id: str, envelope: Dict[str, Any]) -> "ChatResponse":
+        """Parse a raw agent payload dict into a typed ``ChatResponse``."""
+
         agent = AgentEnvelope.model_validate(envelope)
         return cls(session_id=session_id, reply=agent.reply, agent=agent)

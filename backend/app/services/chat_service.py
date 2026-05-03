@@ -25,18 +25,24 @@ logger = get_logger(__name__)
 
 
 def _coerce_state_updates(value: Any) -> Dict[str, Any]:
+    """Normalize ``state_updates`` from the LLM envelope to a dict (empty if wrong type)."""
+
     if isinstance(value, dict):
         return value
     return {}
 
 
 def _coerce_candidate_status_hint(value: Any) -> str:
+    """Return status hint string or empty if the model sent a non-string."""
+
     if isinstance(value, str):
         return value
     return ""
 
 
 def _coerce_is_completed(value: Any) -> bool:
+    """Parse ``is_completed`` from bool or common string truth values."""
+
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -50,6 +56,8 @@ async def _persist_state_updates(
     candidate_status_hint: str,
     is_completed: bool,
 ) -> None:
+    """Write agent-captured fields to Redis and Postgres (best-effort; logs failures)."""
+
     if not updates and not candidate_status_hint and not is_completed:
         return
     redis_task = screening_state.update_state_redis(session_id, updates)
@@ -71,6 +79,11 @@ async def _persist_state_updates(
 
 
 async def handle_turn(session_id: str, user_message: str) -> Dict[str, Any]:
+    """Execute one screening turn: load context, run LLM agent, persist state + history.
+
+    Returns the raw agent **envelope** dict (``reply``, ``state_updates``, …) for the API layer.
+    """
+
     history, preloaded_state = await asyncio.gather(
         history_repository.load_history(session_id),
         screening_state.load_state(session_id),

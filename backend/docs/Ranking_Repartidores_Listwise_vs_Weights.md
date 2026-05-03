@@ -1,111 +1,111 @@
-# Ranking de repartidores — Comparativa: Weights vs. Listwise + Plackett–Luce
+# Driver ranking — Comparison: Weights vs. Listwise + Plackett–Luce
 
-**Contexto:** Grupo Sazón recibe ~200 candidaturas/semana para repartidores en 45 locales (España + México). El cuello de botella no es decir *quién pasa*, es decir *a quién llamar primero hoy* dentro de los aptos. Este documento muestra el mismo problema resuelto con dos enfoques, paso a paso, con prompts incluidos.
+**Context:** Grupo Sazón receives ~200 applications per week for drivers across 45 locations (Spain + Mexico). The bottleneck is not deciding *who passes*, but *whom to call first today* among those who qualify. This document walks through the same problem with two approaches, step by step, including prompts.
 
-> Documentos de referencia: [`FDE_Technical_Assignment.md`](./FDE_Technical_Assignment.md) · [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md)
+> Reference docs: [`FDE_Technical_Assignment.md`](./FDE_Technical_Assignment.md) · [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md)
 
 ---
 
-## 0. Setup común a los dos enfoques
+## 0. Setup shared by both approaches
 
-### 0.1 Vacante
-- Rol: **Repartidor (delivery driver)**
-- Ciudad: **Guadalajara, MX**
-- Urgencia operativa: **alta** — faltan **6 turnos noche** y **3 turnos fin de semana** en los próximos 5 días.
+### 0.1 Vacancy
+- Role: **Delivery driver**
+- City: **Guadalajara, MX**
+- Operational urgency: **high** — **6 night shifts** and **3 weekend shifts** are short in the next 5 days.
 
-### 0.2 Filtros duros (deterministas, idénticos en ambos enfoques)
-Se descartan automáticamente los candidatos que no cumplan:
+### 0.2 Hard filters (deterministic, identical in both approaches)
+Automatically discard candidates who fail:
 
-- `licencia_conducir = sí`
-- `ciudad ∈ zonas_servicio`
-- `consentimiento_datos = sí`
+- `drivers_license = yes`
+- `city ∈ service_zones`
+- `data_consent = yes`
 
-Tras esto, supón que pasan **8 candidatos aptos**:
+After this, assume **8 qualified candidates** remain:
 
-| ID | Exp. años | Plataformas | Disponibilidad | Inicio | Confiabilidad | Notas |
+| ID | Exp. years | Platforms | Availability | Start | Reliability | Notes |
 | --- | ---: | --- | --- | --- | --- | --- |
-| A | 5 | Uber Eats, Rappi | solo noche | 10 días | alta | Quiere noches estrictas |
-| B | 2 | DiDi Food, Rappi | flexible | 1 día | alta | Disponible fines de semana |
-| C | 3 | Uber Eats | tarde / noche | 2 días | media-alta | 1 ausencia justificada hace 8 meses |
-| D | 4 | Glovo, Rappi | flexible | 3 días | alta | Tiene moto propia |
-| E | 0 | — | mañana | 7 días | sin datos | Primer empleo |
-| F | 1 | Uber Eats | flexible | 1 día | media | Cambió de plataforma 2 veces |
-| G | 6 | Glovo, Stuart | tarde | 14 días | alta | Solicita salario superior |
-| H | 2 | DiDi Food | noche / fin de semana | 2 días | alta | Recomendado por empleado actual |
+| A | 5 | Uber Eats, Rappi | night only | 10 days | high | Wants strict nights |
+| B | 2 | DiDi Food, Rappi | flexible | 1 day | high | Available weekends |
+| C | 3 | Uber Eats | afternoon / night | 2 days | medium-high | 1 justified absence 8 months ago |
+| D | 4 | Glovo, Rappi | flexible | 3 days | high | Owns scooter |
+| E | 0 | — | morning | 7 days | unknown | First job |
+| F | 1 | Uber Eats | flexible | 1 day | medium | Switched platforms twice |
+| G | 6 | Glovo, Stuart | afternoon | 14 days | high | Asks above-market pay |
+| H | 2 | DiDi Food | night / weekend | 2 days | high | Referred by current employee |
 
-El objetivo: **ordenar estos 8** para llamar primero a los más críticos esta semana.
+Goal: **rank these 8** so the most critical for this week are called first.
 
 ---
 
-## 1. Enfoque 1 — Weights (fórmula fija de scoring)
+## 1. Approach 1 — Weights (fixed scoring formula)
 
-### 1.1 Paso a paso
+### 1.1 Step by step
 
-#### Paso 1: Definir features y pesos
-El equipo (o el LLM en una sola pasada) propone una fórmula:
+#### Step 1: Define features and weights
+The team (or the LLM in one shot) proposes a formula:
 
 ```
-score = 0.40·experiencia
-      + 0.25·disponibilidad
-      + 0.20·rapidez_inicio
-      + 0.10·confiabilidad
-      + 0.05·match_plataforma
+score = 0.40·experience
+      + 0.25·availability
+      + 0.20·start_speed
+      + 0.10·reliability
+      + 0.05·platform_match
 ```
 
-Cada feature se normaliza a [0, 1] con reglas simples:
+Each feature is normalized to [0, 1] with simple rules:
 
-| Feature | Regla de normalización |
+| Feature | Normalization rule |
 | --- | --- |
-| `experiencia` | `min(años / 5, 1.0)` |
-| `disponibilidad` | flexible=1.0; tarde+noche=0.8; solo noche=0.6; solo mañana=0.4 |
-| `rapidez_inicio` | 1 día=1.0; 2-3=0.85; 4-7=0.6; 8-14=0.3 |
-| `confiabilidad` | alta=1.0; media-alta=0.8; media=0.6; sin datos=0.5 |
-| `match_plataforma` | conoce ≥ 1 plataforma del listado canónico → 1.0; otra → 0.5 |
+| `experience` | `min(years / 5, 1.0)` |
+| `availability` | flexible=1.0; afternoon+night=0.8; night only=0.6; morning only=0.4 |
+| `start_speed` | 1 day=1.0; 2–3=0.85; 4–7=0.6; 8–14=0.3 |
+| `reliability` | high=1.0; medium-high=0.8; medium=0.6; unknown=0.5 |
+| `platform_match` | knows ≥ 1 canonical platform → 1.0; else → 0.5 |
 
-#### Paso 2: (Opcional) prompt al LLM para sugerir pesos
+#### Step 2: (Optional) LLM prompt to suggest weights
 
 ```text
 SYSTEM
-Eres un experto en operaciones de delivery. Dado el contexto de la vacante,
-propón pesos numéricos (suman 1.0) para 5 features de scoring.
-Devuelve SOLO JSON.
+You are a delivery-operations expert. Given the vacancy context,
+propose numeric weights (sum to 1.0) for 5 scoring features.
+Return ONLY JSON.
 
 USER
-Vacante: Repartidor en Guadalajara.
-Urgencia: alta — faltan turnos noche y fin de semana en 5 días.
-Features disponibles: experiencia, disponibilidad, rapidez_inicio, confiabilidad, match_plataforma.
+Vacancy: Driver in Guadalajara.
+Urgency: high — night and weekend shifts are short within 5 days.
+Features: experience, availability, start_speed, reliability, platform_match.
 
-Formato:
+Format:
 {
   "weights": {
-    "experiencia": 0.0,
-    "disponibilidad": 0.0,
-    "rapidez_inicio": 0.0,
-    "confiabilidad": 0.0,
-    "match_plataforma": 0.0
+    "experience": 0.0,
+    "availability": 0.0,
+    "start_speed": 0.0,
+    "reliability": 0.0,
+    "platform_match": 0.0
   },
-  "rationale": "una frase corta"
+  "rationale": "one short sentence"
 }
 ```
 
-Salida del LLM (ejemplo):
+Example LLM output:
 
 ```json
 {
   "weights": {
-    "experiencia": 0.40,
-    "disponibilidad": 0.25,
-    "rapidez_inicio": 0.20,
-    "confiabilidad": 0.10,
-    "match_plataforma": 0.05
+    "experience": 0.40,
+    "availability": 0.25,
+    "start_speed": 0.20,
+    "reliability": 0.10,
+    "platform_match": 0.05
   },
-  "rationale": "Se prioriza experiencia y disponibilidad para minimizar onboarding."
+  "rationale": "Prioritize experience and availability to minimize onboarding."
 }
 ```
 
-#### Paso 3: Calcular score por candidato
+#### Step 3: Compute score per candidate
 
-| ID | exp | disp | inicio | conf | match | **score** |
+| ID | exp | avail | start | rel | match | **score** |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | A | 1.00 | 0.60 | 0.30 | 1.00 | 1.00 | **0.760** |
 | B | 0.40 | 1.00 | 1.00 | 1.00 | 1.00 | **0.760** |
@@ -116,31 +116,31 @@ Salida del LLM (ejemplo):
 | G | 1.00 | 0.80 | 0.30 | 1.00 | 1.00 | **0.810** |
 | H | 0.40 | 0.80 | 0.85 | 1.00 | 1.00 | **0.680** |
 
-#### Paso 4: Ordenar por score (descendente)
+#### Step 4: Sort by score (descending)
 
-**Ranking weights:** `D > G > A ≈ B > C > H > F > E`
+**Weights ranking:** `D > G > A ≈ B > C > H > F > E`
 
-### 1.2 Problema visible
-- **A y G** salen muy arriba aunque empiezan **en 10 y 14 días**. Esta semana no resuelven nada operativamente.
-- **H** queda en 6º lugar a pesar de tener disponibilidad **noche + fin de semana**, justo lo que falta esta semana.
-- **B** y **F** (los que empiezan mañana) quedan empatados o por debajo de gente que empieza en 2 semanas.
+### 1.2 Visible problem
+- **A and G** rank high but start in **10 and 14 days**. They do not help operations **this** week.
+- **H** lands 6th despite **night + weekend** availability—exactly what is missing this week.
+- **B** and **F** (starting tomorrow) tie or fall below people starting in two weeks.
 
-La fórmula congela una visión genérica del rol y **no refleja la urgencia real** de la semana.
+The formula freezes a generic view of the role and **does not reflect real weekly urgency**.
 
-### 1.3 Costo y trazabilidad
-- **1 llamada al LLM** (opcional, solo para sugerir pesos).
-- Trazabilidad: alta — todo cálculo es visible.
-- Pero la **decisión** está atrapada en pesos arbitrarios.
+### 1.3 Cost and traceability
+- **1 LLM call** (optional, weight suggestion only).
+- Traceability: high — every calculation is visible.
+- But the **decision** is locked into arbitrary weights.
 
 ---
 
-## 2. Enfoque 2 — Listwise + Plackett–Luce
+## 2. Approach 2 — Listwise + Plackett–Luce
 
-### 2.1 Paso a paso
+### 2.1 Step by step
 
-#### Paso 1: Generar subconjuntos (mini-torneos) de tamaño K=3
+#### Step 1: Generate subsets (mini-tournaments) of size K=3
 
-Round-robin parcial cubriendo a todos los candidatos al menos 2 veces:
+Partial round-robin so every candidate appears at least twice:
 
 - T1: {A, B, C}
 - T2: {D, E, F}
@@ -151,54 +151,54 @@ Round-robin parcial cubriendo a todos los candidatos al menos 2 veces:
 - T7: {B, G, E}
 - T8: {C, D, B}
 
-#### Paso 2: Prompt listwise para el LLM (idéntico para todos los torneos)
+#### Step 2: Listwise LLM prompt (identical for every tournament)
 
 ```text
 SYSTEM
-Eres evaluador de candidatos para Grupo Sazón (rol: repartidor).
+You evaluate candidates for Grupo Sazón (role: delivery driver).
 
-Evalúa COMPARATIVAMENTE (listwise) un grupo de candidatos.
-NO los evalúes uno por uno de forma aislada.
-Razonas internamente paso a paso, pero entregas SOLO el orden final.
+Compare candidates COMPARATIVELY (listwise) as a group.
+Do NOT score them one-by-one in isolation.
+Reason step-by-step internally, but output ONLY the final order.
 
-Rúbrica (en este orden de importancia):
-1) Cobertura operativa inmediata (inicio + disponibilidad real para los turnos críticos).
-2) Confiabilidad (historial, ausencias, estabilidad).
-3) Experiencia relevante en reparto (años + plataformas).
-4) Comunicación y resolución básica de incidencias.
-5) Riesgo operativo (señales de abandono, restricciones fuertes).
+Rubric (priority order):
+1) Immediate operational fit (start date + real availability for critical shifts).
+2) Reliability (track record, absences, stability).
+3) Relevant delivery experience (years + platforms).
+4) Communication and basic incident handling.
+5) Operational risk (churn signals, hard constraints).
 
-Reglas:
-- No inventes datos. Si falta info, trátalo como neutral.
-- No uses atributos personales no laborales (nombre, género, edad, nacionalidad).
-- Considera el contexto operativo provisto.
-- Devuelve SOLO JSON con esta forma:
+Rules:
+- Do not invent facts. If information is missing, treat as neutral.
+- Do not use non-job personal attributes (name, gender, age, nationality).
+- Use the operational context provided.
+- Return ONLY JSON:
   {
     "ranking": ["ID1","ID2","ID3"],
     "confidence": 0.00
   }
-- Sin explicaciones, sin texto extra.
+- No explanations, no extra text.
 ```
 
 ```text
 USER
-Contexto operativo:
-- Ciudad: Guadalajara
-- Urgencia: alta
-- Turnos críticos esta semana: noche, fin_de_semana
-- Ventana de inicio ideal: 0-3 días
+Operational context:
+- City: Guadalajara
+- Urgency: high
+- Critical shifts this week: night, weekend
+- Ideal start window: 0–3 days
 
-Candidatos:
+Candidates:
 [
-  {"id":"A","exp_years":5,"platforms":["Uber Eats","Rappi"],"availability":"solo_noche","start":"10_dias","reliability":"alta"},
-  {"id":"B","exp_years":2,"platforms":["DiDi Food","Rappi"],"availability":"flexible","start":"1_dia","reliability":"alta"},
-  {"id":"C","exp_years":3,"platforms":["Uber Eats"],"availability":"tarde_noche","start":"2_dias","reliability":"media_alta"}
+  {"id":"A","exp_years":5,"platforms":["Uber Eats","Rappi"],"availability":"night_only","start":"10_days","reliability":"high"},
+  {"id":"B","exp_years":2,"platforms":["DiDi Food","Rappi"],"availability":"flexible","start":"1_day","reliability":"high"},
+  {"id":"C","exp_years":3,"platforms":["Uber Eats"],"availability":"afternoon_night","start":"2_days","reliability":"medium_high"}
 ]
 ```
 
-#### Paso 3: Resultados de los torneos (lo que devolvería el LLM)
+#### Step 3: Tournament results (example LLM outputs)
 
-| Torneo | Subconjunto | Salida del LLM (JSON) |
+| Tournament | Subset | LLM output (JSON) |
 | --- | --- | --- |
 | T1 | {A, B, C} | `{"ranking":["B","C","A"],"confidence":0.82}` |
 | T2 | {D, E, F} | `{"ranking":["D","F","E"],"confidence":0.91}` |
@@ -209,19 +209,19 @@ Candidatos:
 | T7 | {B, G, E} | `{"ranking":["B","G","E"],"confidence":0.88}` |
 | T8 | {C, D, B} | `{"ranking":["B","D","C"],"confidence":0.83}` |
 
-Patrón visible: **B y D dominan**, **H aparece arriba en 2 de 3 torneos**, **A y G caen** porque "5 años" y "6 años" no compensan empezar en 10–14 días.
+Clear pattern: **B and D dominate**, **H is top in 2 of 3 appearances**, **A and G fall** because “5 years” and “6 years” do not offset starting in 10–14 days.
 
-#### Paso 4: Agregar con Plackett–Luce
+#### Step 4: Aggregate with Plackett–Luce
 
-El modelo PL ajusta utilidades latentes \(u_i\) que **maximizan la verosimilitud** de los rankings observados:
+PL fits latent utilities \(u_i\) that **maximize the likelihood** of observed rankings:
 
 \[
 P(\pi) = \prod_{k=1}^{K} \frac{\exp(u_{\pi_k})}{\sum_{j=k}^{K} \exp(u_{\pi_j})}
 \]
 
-Para este conjunto de torneos, el ajuste produce (ejemplo):
+For this tournament set, a fit might yield (example):
 
-| ID | utilidad \(u_i\) |
+| ID | utility \(u_i\) |
 | ---: | ---: |
 | B | 2.45 |
 | D | 1.95 |
@@ -232,81 +232,81 @@ Para este conjunto de torneos, el ajuste produce (ejemplo):
 | A | 0.05 |
 | E | -0.85 |
 
-**Ranking PL:** `B > D > H > C > F > G > A > E`
+**PL ranking:** `B > D > H > C > F > G > A > E`
 
-#### Paso 5: Active learning para reducir incertidumbre
+#### Step 5: Active learning to reduce uncertainty
 
-PL también devuelve la varianza posterior por candidato (Laplace approx.). Supón que la **frontera incierta** es entre `H` y `C` para top-3.
+PL can also return per-candidate posterior variance (Laplace approx.). Suppose the **uncertain frontier** is between `H` and `C` for top-3.
 
-Lanzas un torneo dirigido:
+Run targeted tournaments:
 
 - T9: {H, C, D} → `{"ranking":["D","H","C"],"confidence":0.80}`
 - T10: {H, C, B} → `{"ranking":["B","H","C"],"confidence":0.78}`
 
-Reajustas PL. La separación entre H y C se confirma. Top-3 estable: **B, D, H**.
+Refit PL. Separation between H and C tightens. Stable top-3: **B, D, H**.
 
-### 2.2 Decisión final de negocio
+### 2.2 Business decision
 
-- **Llamar HOY:** `B`, `D`, `H` (los 3 cubren turnos noche/fin de semana en ≤ 3 días)
+- **Call today:** `B`, `D`, `H` (all three cover night/weekend within ≤ 3 days)
 - **Backup:** `C`, `F`
-- **Mantener en cola más larga:** `G`, `A` (irrelevantes para esta semana, pero útiles más adelante)
-- **Descartar suave:** `E` (sin experiencia ni urgencia)
+- **Longer queue:** `G`, `A` (low value this week, useful later)
+- **Soft pass:** `E` (no experience or urgency)
 
-### 2.3 Costo y trazabilidad
-- **8 llamadas al LLM** en el round-robin inicial, **2 más** en active learning.
-- Cada decisión cita: torneos donde apareció el candidato, utilidad PL, confianza, versión de rúbrica.
-- Audit trail completo y defendible.
+### 2.3 Cost and traceability
+- **8 LLM calls** in the initial round-robin, **2 more** with active learning.
+- Every decision cites: tournaments where the candidate appeared, PL utility, confidence, rubric version.
+- Full, defensible audit trail.
 
 ---
 
-## 3. Comparativa lado a lado
+## 3. Side-by-side comparison
 
-| Aspecto | Weights | Listwise + PL |
+| Aspect | Weights | Listwise + PL |
 | --- | --- | --- |
-| **Top 3 final** | D, G, A | **B, D, H** |
-| **¿Cubre los turnos críticos esta semana?** | No (G y A empiezan en 14 y 10 días) | **Sí** (los 3 inician en ≤ 3 días) |
-| **Sensibilidad al contexto** | Baja — pesos fijos | **Alta** — el LLM ve la urgencia y la rúbrica |
-| **Trade-offs entre dimensiones** | Lineales y ponderados a mano | **Capturados por comparación de grupo** |
-| **Ruido de juicio único** | Inexistente (no hay LLM por candidato) | **Amortiguado** por agregación PL multi-torneo |
-| **Auditabilidad** | Buena | **Buena** (utilidades + torneos + confianza) |
-| **Extensibilidad a 200/semana** | Recalcular fórmula | **Active learning** reduce llamadas |
-| **Coste LLM** | 0–1 llamada | 8–10 llamadas (escala sub-lineal con AL) |
-| **Riesgo de mala decisión cuando contexto cambia** | **Alto** | Bajo |
+| **Final top 3** | D, G, A | **B, D, H** |
+| **Covers critical shifts this week?** | No (G and A start in 14 and 10 days) | **Yes** (all three start in ≤ 3 days) |
+| **Context sensitivity** | Low — fixed weights | **High** — LLM sees urgency and rubric |
+| **Trade-offs across dimensions** | Linear, hand-weighted | **Captured by group comparison** |
+| **Single-judgment noise** | None (no per-candidate LLM) | **Smoothed** by multi-tournament PL aggregation |
+| **Auditability** | Good | **Good** (utilities + tournaments + confidence) |
+| **Scaling to 200/week** | Recompute formula | **Active learning** cuts calls |
+| **LLM cost** | 0–1 calls | 8–10 calls (sub-linear with AL) |
+| **Bad decisions when context shifts** | **High** risk | Lower |
 
-### El verdadero punto: ¿por qué difieren los rankings?
-La fórmula de pesos premia **experiencia y disponibilidad nominal**.  
-El listwise + PL premia **encaje operativo con la semana actual** porque el LLM ve la urgencia en el prompt y el modelo PL agrega múltiples comparaciones de grupo donde ese encaje aparece una y otra vez.
+### The real point: why do rankings differ?
+The weight formula rewards **nominal experience and availability labels**.  
+Listwise + PL rewards **fit to the current week** because the LLM sees urgency in the prompt and PL aggregates many group comparisons where that fit shows up repeatedly.
 
-Cuando el contexto cambia (otra semana, otro turno crítico), **el flujo PL se adapta sin tocar fórmulas**. La fórmula de pesos requiere reescribir coeficientes cada vez.
+When context changes (another week, another critical shift), **the PL flow adapts without rewriting formulas**. Weights require re-tuning coefficients each time.
 
 ---
 
-## 4. Cuándo elegir cada uno
+## 4. When to choose which
 
-| Situación | Mejor opción |
+| Situation | Better fit |
 | --- | --- |
-| Filtros duros binarios (licencia, zona) | Reglas deterministas — no usar PL ni weights |
-| Pool pequeño (< 10), criterios estables | Weights basta |
-| Contexto operativo cambia semana a semana | **Listwise + PL** |
-| Pool mediano-grande (50–500), trade-offs sutiles entre cualificados | **Listwise + PL** |
-| Auditoría regulatoria fina (LL-144, EU AI Act) | Listwise + PL con `decision_trace` |
-| Costo de LLM es restricción dura | Weights, o PL con menos torneos + AL agresivo |
+| Hard binary filters (license, zone) | Deterministic rules — neither PL nor weights |
+| Small pool (< 10), stable criteria | Weights enough |
+| Operational context shifts weekly | **Listwise + PL** |
+| Medium–large pool (50–500), subtle trade-offs among qualifiers | **Listwise + PL** |
+| Strict regulatory audit (LL-144, EU AI Act) | Listwise + PL with `decision_trace` |
+| LLM cost is a hard constraint | Weights, or PL with fewer tournaments + aggressive AL |
 
-### Recomendación para Grupo Sazón
-**Híbrido en 3 capas:**
+### Recommendation for Grupo Sazón
+**Three-layer hybrid:**
 
-1. **Filtros duros** (deterministas) — descarta los que no cumplen mínimos.
-2. **Score base con weights** — orden inicial barato sobre el pool grande.
-3. **Listwise + PL solo en el top-N** (p. ej. los 30 mejores por score) — desempate fino donde sí importa la decisión de quién llamar primero.
+1. **Hard filters** (deterministic) — drop below-minimum candidates.
+2. **Base score with weights** — cheap ordering over the large pool.
+3. **Listwise + PL on top-N only** (e.g. best 30 by score) — fine tie-break where “whom to call first” matters.
 
-Ese híbrido captura **~95% del beneficio de PL con ~20% del costo**.
+That hybrid captures **~95% of PL benefit at ~20% of the cost**.
 
 ---
 
-## 5. Anexo — Esqueleto de implementación
+## 5. Appendix — implementation skeleton
 
 ```python
-# Pseudocódigo — no es código de producción
+# Pseudocode — not production code
 def rank_candidates(candidates, context, k_subset=3, n_initial=8):
     apt = [c for c in candidates if hard_filters(c)]
     base_score = {c.id: weighted_score(c) for c in apt}
@@ -329,20 +329,20 @@ def rank_candidates(candidates, context, k_subset=3, n_initial=8):
     return pl.global_ranking()
 ```
 
-Componentes clave:
-- `hard_filters` — deterministas, auditables.
-- `weighted_score` — score barato del Enfoque 1, solo como pre-filtro.
-- `call_llm_listwise` — el prompt de la sección 2.1 paso 2.
-- `fit_plackett_luce` — librería estadística (p. ej. `choix`, `pyplackettluce` o implementación custom con MLE).
-- `next_informative_subset` — acquisition function (MC-KG, posterior disagreement, KL-UCB) — ver sección 3.5 de [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md).
+Key pieces:
+- `hard_filters` — deterministic, auditable.
+- `weighted_score` — cheap Approach 1 score, pre-filter only.
+- `call_llm_listwise` — prompt from section 2.1 step 2.
+- `fit_plackett_luce` — statistics library (e.g. `choix`, `pyplackettluce`, or custom MLE).
+- `next_informative_subset` — acquisition function (MC-KG, posterior disagreement, KL-UCB) — see section 3.5 of [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md).
 
 ---
 
-## 6. Para llevar
+## 6. Takeaways
 
-- **Ordenar pesos** funciona si los pesos son verdaderos y el contexto no cambia. En reclutamiento real, ninguna de las dos cosas se cumple.
-- **Listwise + PL** convierte juicio del LLM en **inferencia estadística**: agrega muchas comparaciones ruidosas en utilidades latentes coherentes.
-- **Active learning** hace el coste manejable: solo preguntas donde de verdad cambia la decisión.
-- **El ranking ya no es una fórmula congelada, sino una inferencia adaptativa al contexto operativo de la semana.**
+- **Sorting by weights** works if weights are true and context is static. In real hiring, neither holds.
+- **Listwise + PL** turns LLM judgment into **statistical inference**: many noisy comparisons collapse into coherent latent utilities.
+- **Active learning** keeps cost manageable: ask only where the decision actually changes.
+- **Ranking is no longer a frozen formula; it is inference that adapts to the week’s operational context.**
 
-> Fuente metodológica: *Active Listwise Tournaments for Candidate Ranking* — ver [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md), secciones 3.5 y 4.1 (NDCG@K mejora sostenidamente con active learning; convergencia rápida tras ~10 iteraciones).
+> Methodology source: *Active Listwise Tournaments for Candidate Ranking* — see [`2026.eacl-demo.24_ES.md`](./2026.eacl-demo.24_ES.md), sections 3.5 and 4.1 (NDCG@K improves steadily with active learning; fast convergence after ~10 iterations).

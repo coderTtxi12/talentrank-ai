@@ -37,6 +37,8 @@ _client: Optional[AsyncOpenAI] = None
 
 
 def _get_client() -> AsyncOpenAI:
+    """Lazy singleton AsyncOpenAI client (LangSmith-wrapped) with timeout from settings."""
+
     global _client
     if _client is None:
         if not settings.OPENAI_API_KEY:
@@ -77,6 +79,8 @@ def _assistant_msg_to_dict(msg: Any) -> Dict[str, Any]:
 
 
 def _parse_arguments(raw: Optional[str]) -> Dict[str, Any]:
+    """Best-effort JSON parse of OpenAI ``function.arguments`` string."""
+
     if not raw:
         return {}
     try:

@@ -1,4 +1,10 @@
-"""Orchestrator LLM with tool calls into ranking subagents (parallel per turn)."""
+"""Orchestrator LLM with tool calls into ranking sub-agents (parallel per turn).
+
+The model only sees the JD text plus a roster of candidate UUIDs; each
+``run_group_ranking`` tool call loads dossiers from Postgres and invokes
+:func:`~app.workers.listwise_plackett_luce.subagent.run_group_ranking_subagent`.
+Produces a tournament log and coverage report for the ≥3 appearances rule.
+"""
 
 from __future__ import annotations
 
@@ -56,10 +62,14 @@ LISTWISE_ORCHESTRATOR_TOOLS: List[Dict[str, Any]] = [
 
 
 def _get_client():
+    """Shim to the shared listwise AsyncOpenAI instance."""
+
     return get_listwise_async_client()
 
 
 def _assistant_msg_to_dict(msg: Any) -> Dict[str, Any]:
+    """Normalize an OpenAI assistant message into the chat-completions dict shape."""
+
     out: Dict[str, Any] = {"role": "assistant"}
     if getattr(msg, "content", None) is not None:
         out["content"] = msg.content
@@ -80,6 +90,8 @@ def _assistant_msg_to_dict(msg: Any) -> Dict[str, Any]:
 
 
 def _parse_arguments(raw: Optional[str]) -> Dict[str, Any]:
+    """JSON-decode tool ``function.arguments``; empty dict on failure."""
+
     if not raw:
         return {}
     try:
@@ -90,6 +102,8 @@ def _parse_arguments(raw: Optional[str]) -> Dict[str, Any]:
 
 
 def _roster_lines(candidate_ids: List[str]) -> str:
+    """Sorted bullet list of UUID strings for orchestrator context."""
+
     return "\n".join(f"- {cid}" for cid in sorted(set(candidate_ids)))
 
 
@@ -97,6 +111,8 @@ def _coverage_report(
     tournament_log: List[Dict[str, Any]],
     all_ids: List[str],
 ) -> Dict[str, Any]:
+    """Count mini-tournament appearances per candidate; enforce ≥3 rule for auditing."""
+
     cnt: Counter[str] = Counter()
     for entry in tournament_log:
         for cid in entry.get("candidate_ids") or []:

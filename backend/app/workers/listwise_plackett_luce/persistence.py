@@ -31,10 +31,14 @@ RUBRIC_LISTWISE_ORCH_V1 = "listwise_orchestrator_v1"
 
 
 def _uuid_list(raw: List[Any]) -> List[uuid.UUID]:
+    """Parse string ids via :func:`validate_uuid_list` into UUID objects."""
+
     return [uuid.UUID(x) for x in validate_uuid_list([str(x) for x in raw])]
 
 
 def _normalize_ordering(ordered: List[uuid.UUID], pool: List[uuid.UUID]) -> List[uuid.UUID]:
+    """Merge model order with full pool: unique, pool members only, tail-append leftovers."""
+
     pool_set = set(pool)
     out: List[uuid.UUID] = []
     seen: set[uuid.UUID] = set()

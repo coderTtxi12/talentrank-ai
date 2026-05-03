@@ -1,3 +1,13 @@
+"""Structured stdout logging for the API and workers.
+
+`configure_logging()` should run once at process startup (e.g. FastAPI lifespan
+or `main` in a worker) before other modules emit logs. It applies
+`EmojiFormatter` for quick visual scanning and sets the root level from
+`settings.LOG_LEVEL`.
+
+Use `get_logger(__name__)` in modules for hierarchical logger names.
+"""
+
 import logging
 import sys
 from logging.config import dictConfig
@@ -6,7 +16,7 @@ from app.core.config import settings
 
 
 class EmojiFormatter(logging.Formatter):
-    """Adds a per-level emoji to each log line."""
+    """Prefix log lines with a short emoji derived from `LogRecord.levelname`."""
 
     LEVEL_EMOJI: dict[int, str] = {
         logging.DEBUG: "🐛",
@@ -22,7 +32,7 @@ class EmojiFormatter(logging.Formatter):
 
 
 def configure_logging() -> None:
-    """Configure application-wide logging."""
+    """Apply dictConfig: console handler, emoji format, uvicorn log levels."""
 
     log_config: dict = {
         "version": 1,
@@ -55,4 +65,6 @@ def configure_logging() -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Return the standard library logger for `name` (typically `__name__`)."""
+
     return logging.getLogger(name)

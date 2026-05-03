@@ -1,4 +1,9 @@
-"""Load candidate cohorts and rich profiles for listwise ranking."""
+"""Load listwise cohorts and build **ranking cards** (rich per-candidate JSON for LLMs).
+
+Selects candidates in ``sentiment_analysis``, optionally scoped by vacancy, reads
+the latest conversation + sentiment bundle from Postgres, and renders truncated
+transcripts. Also provides the trimmed public JD text used in orchestrator prompts.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[3]
 JD_PUBLIC_INFO_PATH = BACKEND_ROOT / "docs" / "GRUPO_SAZON_PUBLIC_INFO_ES.txt"
 
 logger = get_logger(__name__)
+
 
 def read_jd_public_context(max_chars: int = 12000) -> str:
     """Plain-text JD / employer context for listwise prompts."""
@@ -56,6 +62,8 @@ def list_candidate_ids_pending_listwise(
 def _latest_conversation_for_candidate(
     db: Session, candidate_id: uuid.UUID
 ) -> Optional[Conversation]:
+    """Most recently active conversation row for this candidate (by ``last_seen_at``)."""
+
     return db.scalar(
         select(Conversation)
         .where(Conversation.candidate_id == candidate_id)
@@ -70,6 +78,8 @@ def _render_transcript(
     max_messages: int = 80,
     max_chars: int = 12000,
 ) -> str:
+    """Format message rows into a bounded transcript string for prompts."""
+
     lines: List[str] = []
     total = 0
     slice_msgs = messages[-max_messages:] if len(messages) > max_messages else messages
@@ -152,7 +162,7 @@ def build_candidate_ranking_card(db: Session, candidate_id: uuid.UUID) -> Dict[s
 
 
 def load_ranking_cards_for_ids(candidate_ids: List[uuid.UUID]) -> Dict[str, Dict[str, Any]]:
-    """Carga fichas completas (ORM) solo para los UUID indicados — uso en subagentes."""
+    """Load full ranking cards (ORM) for the given candidate IDs only — used by sub-agents."""
 
     with SessionLocal() as db:
         return {str(cid): build_candidate_ranking_card(db, cid) for cid in candidate_ids}

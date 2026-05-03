@@ -75,6 +75,8 @@ ToolFn = Callable[..., Union[Dict[str, Any], Awaitable[Dict[str, Any]]]]
 
 @traceable
 def _search_company_info(query: str, k: Optional[int] = None) -> Dict[str, Any]:
+    """RAG-backed tool: semantic search over the Grupo Sazon KB collection in Chroma."""
+
     top_k = k if isinstance(k, int) and k > 0 else settings.RAG_TOP_K
     try:
         hits = vector_store.semantic_search(query, k=top_k)
@@ -118,6 +120,8 @@ def build_tools(session_id: str) -> Dict[str, ToolFn]:
 async def call_tool(
     name: str, arguments: Dict[str, Any], tools: Dict[str, ToolFn]
 ) -> Dict[str, Any]:
+    """Dispatch a tool by name; normalize return value to a dict for ``role=tool`` messages."""
+
     fn = tools.get(name)
     if fn is None:
         return {"error": f"Unknown tool: {name}"}

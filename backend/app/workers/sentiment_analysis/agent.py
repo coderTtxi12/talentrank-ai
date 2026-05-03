@@ -46,6 +46,8 @@ _client: Optional[AsyncOpenAI] = None
 
 
 def _get_client() -> AsyncOpenAI:
+    """Lazy LangSmith-wrapped AsyncOpenAI singleton (same model settings as screening)."""
+
     global _client
     if _client is None:
         if not settings.OPENAI_API_KEY:
@@ -198,6 +200,8 @@ def _coerce_envelope(data: Any) -> Dict[str, Any]:
 
 
 def _fallback_envelope(reason: str) -> Dict[str, Any]:
+    """Safe neutral payload when the model output cannot be used (parse error, empty, etc.)."""
+
     return {
         "sentiment": "neutral",
         "confidence": 0.0,

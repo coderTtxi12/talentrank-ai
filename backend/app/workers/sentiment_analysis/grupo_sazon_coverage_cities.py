@@ -1,7 +1,7 @@
-"""Ciudades en cobertura Grupo Sazón (España y México).
+"""Grupo Sazón coverage cities (Spain and Mexico).
 
-Fuente de verdad operativa: `backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`.
-La lista aquí debe mantenerse alineada con ese documento.
+Operational source of truth: `backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`.
+Keep this module’s tuples aligned with that document.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import unicodedata
 from functools import lru_cache
 from typing import FrozenSet, Optional
 
-# España — mismo orden que el doc público
+# Spain — same order as the public reference doc
 COVERAGE_CITIES_SPAIN: tuple[str, ...] = (
     "Madrid",
     "Barcelona",
@@ -35,7 +35,7 @@ COVERAGE_CITIES_SPAIN: tuple[str, ...] = (
     "Salamanca",
 )
 
-# México — mismo orden que el doc público
+# Mexico — same order as the public reference doc
 COVERAGE_CITIES_MEXICO: tuple[str, ...] = (
     "Ciudad de Mexico",
     "Guadalajara",
@@ -66,7 +66,7 @@ COVERAGE_CITIES_MEXICO: tuple[str, ...] = (
 
 
 def normalize_city_label(value: str) -> str:
-    """Lowercase, strip accents, collapse whitespace — para comparar etiquetas."""
+    """Lowercase, strip accents, collapse whitespace — for label comparison."""
 
     s = value.strip().lower()
     s = unicodedata.normalize("NFD", s)
@@ -82,10 +82,10 @@ def _normalized_coverage_set() -> FrozenSet[str]:
 
 
 def city_zone_in_coverage(city_zone: Optional[str]) -> bool:
-    """True si `city_zone` coincide con alguna ciudad listada (tras normalizar).
+    """True if `city_zone` matches a listed city after normalization.
 
-    Acepta valores del tipo "Guadalajara, Jalisco" usando el primer segmento
-    antes de coma, punto y coma o barra.
+    Accepts values like 'Guadalajara, Jalisco' by taking the first segment
+    before comma, semicolon, or slash.
     """
 
     if city_zone is None:
@@ -108,7 +108,7 @@ def city_zone_in_coverage(city_zone: Optional[str]) -> bool:
         n = normalize_city_label(seg)
         if n in allowed:
             return True
-        # "Guadalajara centro", " Zona norte Monterrey" — ciudad como prefijo/sufijo corto
+        # "Guadalajara centro", " Zona norte Monterrey" — city as short prefix/suffix
         for a in allowed:
             if len(a) < 3:
                 continue

@@ -129,6 +129,18 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
 
+  frontend-dashboard:
+    build:
+      context: ./frontend-dashboard
+      dockerfile: Dockerfile
+    container_name: orbio-frontend-dashboard
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${DASHBOARD_PORT:-5174}:80"
+
 volumes:
   pg_data:
   redis_data:

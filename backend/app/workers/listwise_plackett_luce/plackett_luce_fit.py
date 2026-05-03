@@ -22,6 +22,8 @@ EPS = 1e-12
 
 
 def _softmax_dict(scores: Dict[str, float]) -> Dict[str, float]:
+    """Numerically stable softmax over a string-keyed score map."""
+
     if not scores:
         return {}
     m = max(scores.values())

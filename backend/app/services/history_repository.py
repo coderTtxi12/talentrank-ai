@@ -77,6 +77,8 @@ def _load_history_pg(session_id: str) -> List[dict]:
 
 
 async def _warm_cache(session_id: str, history: List[dict]) -> None:
+    """Rebuild Redis ``hist:`` list from Postgres-derived turns and set TTL."""
+
     redis = get_redis()
     key = _hist_key(session_id)
     await redis.delete(key)  # type: ignore[misc]
@@ -93,6 +95,8 @@ async def _warm_cache(session_id: str, history: List[dict]) -> None:
 async def append_redis(
     session_id: str, user_message: str, assistant_message: str
 ) -> None:
+    """Append the latest user+assistant pair to Redis, trim to ``HISTORY_MAX_TURNS``, refresh TTL."""
+
     redis = get_redis()
     key = _hist_key(session_id)
     await redis.rpush(key, json.dumps({"role": "user", "content": user_message}))  # type: ignore[misc]
@@ -140,6 +144,8 @@ def _append_pg_sync(
 async def append_postgres(
     session_id: str, user_message: str, assistant_message: str
 ) -> None:
+    """Persist the same turn pair to ``messages`` (creates ``Conversation`` if needed)."""
+
     await asyncio.to_thread(
         _append_pg_sync, session_id, user_message, assistant_message
     )

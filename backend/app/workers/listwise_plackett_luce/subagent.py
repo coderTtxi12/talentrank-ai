@@ -1,4 +1,9 @@
-"""Single-group listwise ranking via a dedicated LLM call (no tools)."""
+"""One listwise LLM call per mini-tournament: JSON ordering + rationale (no tools).
+
+The orchestrator supplies ``candidate_cards`` loaded from Postgres; this module
+runs a single ``json_object`` completion with retries and sanitizes the output
+IDs against the allowed set.
+"""
 
 from __future__ import annotations
 
@@ -16,10 +21,14 @@ logger = get_logger(__name__)
 
 
 def _get_client():
+    """Delegate to :func:`get_listwise_async_client`."""
+
     return get_listwise_async_client()
 
 
 def _sanitize_order(raw: List[Any], allowed: set[str]) -> List[str]:
+    """Keep model order for valid UUIDs; append any missing ids deterministically at the end."""
+
     out: List[str] = []
     seen: set[str] = set()
     for x in raw:
@@ -38,7 +47,7 @@ async def run_group_ranking_subagent(
     jd_context: str,
     candidate_cards: Dict[str, Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Return {ordered_candidate_ids, rationale}."""
+    """Run sub-agent listwise ranking; returns ``ordered_candidate_ids`` and ``rationale``."""
 
     allowed = {str(x).strip() for x in candidate_ids if str(x).strip()}
     if not allowed:
@@ -95,6 +104,8 @@ async def run_group_ranking_subagent(
 
 
 def validate_uuid_list(ids: List[str]) -> List[str]:
+    """Drop invalid strings; return canonical ``str(uuid.UUID(...))`` list."""
+
     out: List[str] = []
     for i in ids:
         try:

@@ -1,4 +1,9 @@
-"""Paginated message history across all conversations linked to a candidate."""
+"""Dashboard-facing transcript reader: all chat messages for one candidate.
+
+Joins ``conversations`` ➜ ``messages`` for the given ``candidate_id``, filters
+to user/assistant turns only, and returns rows in chronological order with
+opaque **keyset** cursors (created_at + message id) for stable pagination.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +21,8 @@ from app.schemas.conversation_messages import ConversationMessagePublic, Convers
 
 
 def _encode_cursor(created_at: datetime, message_id: uuid.UUID) -> str:
+    """Build a URL-safe cursor token from sort position (timestamp + id)."""
+
     t = created_at if created_at.tzinfo else created_at.replace(tzinfo=timezone.utc)
     payload = {"t": t.isoformat(), "id": str(message_id)}
     raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -23,6 +30,8 @@ def _encode_cursor(created_at: datetime, message_id: uuid.UUID) -> str:
 
 
 def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    """Inverse of :func:`_encode_cursor` (raises if malformed)."""
+
     pad = "=" * (-len(cursor) % 4)
     raw = base64.urlsafe_b64decode(cursor + pad)
     payload = json.loads(raw.decode("utf-8"))
@@ -40,6 +49,8 @@ def list_conversation_messages_for_candidate(
     limit: int,
     cursor: Optional[str],
 ) -> ConversationMessagesPage:
+    """Return the next page of transcript messages for ``candidate_id`` (ascending time)."""
+
     stmt = (
         select(Message)
         .join(Conversation, Message.conversation_id == Conversation.id)

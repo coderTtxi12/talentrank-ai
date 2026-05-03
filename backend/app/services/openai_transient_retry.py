@@ -1,4 +1,8 @@
-"""Retries for transient OpenAI failures (timeouts, connection, rate limit, 5xx)."""
+"""Async retry helper for flaky OpenAI HTTP calls.
+
+Retries on timeouts, connection errors, rate limits (429), and 5xx responses
+using exponential backoff (extra multiplier on rate limits).
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,10 @@
-"""Read-only candidate listing with cursor pagination."""
+"""Candidate listing and detail mapping for the recruiter dashboard API.
+
+Maps ORM ``Candidate`` rows to :class:`~app.schemas.candidate_public.CandidatePublic`,
+handles **cursor** pagination (newest first), optional filters, and aggregates
+used by dashboard statistics. Sentiment fields on detail views are joined from
+the latest ``SentimentResult`` for that candidate's conversations.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +40,8 @@ def _currency_for_country(country: str) -> str:
 
 
 def candidate_to_public(row: Candidate) -> CandidatePublic:
+    """Project a ``Candidate`` ORM instance to the public dashboard schema."""
+
     country = _language_to_country(row.language)
     status_val = row.status.value if isinstance(row.status, CandidateStatus) else str(row.status)
     full_name = row.full_name or ""
@@ -82,6 +90,8 @@ def candidate_to_public(row: Candidate) -> CandidatePublic:
 
 
 def _encode_cursor(created_at: datetime, cid: Any) -> str:
+    """Opaque cursor for listing: ``created_at`` + candidate UUID (newest-first pages)."""
+
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
     payload = {
@@ -93,6 +103,8 @@ def _encode_cursor(created_at: datetime, cid: Any) -> str:
 
 
 def _decode_cursor(cursor: str) -> tuple[datetime, Any]:
+    """Decode :func:`_encode_cursor` output into timestamp and UUID."""
+
     pad = "=" * (-len(cursor) % 4)
     raw = base64.urlsafe_b64decode(cursor + pad)
     payload = json.loads(raw.decode("utf-8"))
@@ -114,6 +126,8 @@ def list_candidates_cursor_page(
     country_filter: Optional[str],
     include_total: bool,
 ) -> CandidatesCursorPage:
+    """Keyset-paginated candidate list with optional status/country filters and total count."""
+
     stmt = select(Candidate)
     if status_filter:
         try:
@@ -187,6 +201,8 @@ def _latest_sentiment_result_for_candidate(
 
 
 def list_recent_candidates(db: Session, *, limit: int) -> list[CandidatePublic]:
+    """Most recently created candidates (no filters), for widgets or shortcuts."""
+
     stmt = (
         select(Candidate)
         .order_by(Candidate.created_at.desc(), Candidate.id.desc())
@@ -197,6 +213,8 @@ def list_recent_candidates(db: Session, *, limit: int) -> list[CandidatePublic]:
 
 
 def get_candidate_by_id(db: Session, candidate_id: str) -> Optional[CandidatePublic]:
+    """Single candidate by id string; enrich with latest sentiment when present."""
+
     try:
         uid = uuid.UUID(candidate_id)
     except ValueError:

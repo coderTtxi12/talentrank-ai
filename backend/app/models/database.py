@@ -1,5 +1,8 @@
 """SQLAlchemy ORM models — persistent state.
 
+HTTP request/response schemas live in ``app.models.chat`` and ``app.models.health``;
+this module holds **database tables** only.
+
 Design principles:
 - PostgreSQL only (we rely on JSONB, ARRAY and ENUM types).
 - Lookup catalogs (`service_areas`) are tables, not enums in code.
@@ -82,8 +85,10 @@ class Channel(str, enum.Enum):
 
 
 class CandidateStatus(str, enum.Enum):
+    """Where the candidate sits in the screening → ML → ranking pipeline."""
+
     NEW = "new"
-    # Conversational screening with the IA agent (requirements capture).
+    # Conversational screening with the AI agent (requirements capture).
     IN_PROGRESS = "in_progress"
     # Mandatory-requirements gate (hard filter / CP-1 style evaluation).
     HARD_FILTER = "hard_filter"
@@ -481,6 +486,12 @@ class Job(Base):
 
 
 class SentimentResult(Base):
+    """One row per conversation after phase-2 sentiment analysis (LLM + rules).
+
+    ``conversation_id`` is unique: re-runs upsert the same row. ``signals`` holds
+    structured cues for downstream review or dashboards.
+    """
+
     __tablename__ = "sentiment_results"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -624,6 +635,11 @@ class RankingResult(Base):
 
 
 class SecurityEvent(Base):
+    """Detected abuse or policy violation tied to a conversation/message.
+
+    Used for analytics, blocking decisions, and regulatory audit trails.
+    """
+
     __tablename__ = "security_events"
 
     id: Mapped[uuid.UUID] = mapped_column(
