@@ -45,13 +45,8 @@ const Navbar = () => {
             </button>
 
             <Link to="/" className="flex flex-col ml-4">
-              <span className="flex items-center">
-                <span className="text-2xl mr-2" aria-hidden>
-                  🛵
-                </span>
-                <span className="text-xl font-bold text-primary-600">{APP_NAME}</span>
-              </span>
-              <span className="hidden sm:block text-xs text-gray-500 mt-0.5 pl-9">
+              <span className="text-xl font-bold text-primary-600">{APP_NAME}</span>
+              <span className="hidden sm:block text-xs text-gray-500 mt-0.5">
                 {NAV_CONTEXT_LINE}
               </span>
             </Link>

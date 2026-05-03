@@ -63,7 +63,6 @@ export const SIDEBAR_CANDIDATES_TOTAL = (total: number) =>
 export const LIST_TITLE = 'Candidatos';
 export const LIST_SUBTITLE =
   'Gestiona y revisa el screening en España y México';
-export const LIST_BTN_NEW = '+ Nuevo candidato';
 export const LIST_SHOWING = (shown: number, total: number) =>
   `Mostrando ${shown} de ${total} candidatos`;
 export const LIST_FILTERS_ACTIVE = 'Filtros activos';

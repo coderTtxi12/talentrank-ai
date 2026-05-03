@@ -2,15 +2,14 @@
  * Listado de candidatos con filtros y paginación por cursor.
  */
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchCandidates, setFilters } from '@/store/slices/candidatesSlice';
 import { Card, Button } from '@/components/ui';
 import { CandidateTable, CandidateFilters } from '@/components/candidates';
+import { ListwiseRankingModalTrigger } from '@/components/jobs/ListwiseRankingModalTrigger';
 import {
   LIST_TITLE,
   LIST_SUBTITLE,
-  LIST_BTN_NEW,
   LIST_SHOWING,
   LIST_FILTERS_ACTIVE,
 } from '@/constants/branding';
@@ -47,12 +46,9 @@ const CandidatesList = () => {
           <h1 className="text-2xl font-bold text-gray-900">{LIST_TITLE}</h1>
           <p className="text-gray-600">{LIST_SUBTITLE}</p>
         </div>
-        <Link
-          to="/candidates/new"
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          {LIST_BTN_NEW}
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <ListwiseRankingModalTrigger />
+        </div>
       </div>
 
       <CandidateFilters />

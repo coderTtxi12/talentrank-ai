@@ -22,7 +22,6 @@ import {
 import {
   DASH_TITLE,
   DASH_SUBTITLE,
-  DASH_BTN_NEW,
   DASH_BTN_SIMULATION,
   DASH_SIM_MODAL_TITLE,
   DASH_SIM_MODAL_BODY,
@@ -32,11 +31,6 @@ import {
   DASH_SIM_SUCCESS,
   DASH_SIM_WARN_ALREADY_RAN,
   DASH_SIM_USED_HINT,
-  DASH_RANK_MODAL_TITLE,
-  DASH_RANK_MODAL_BODY,
-  DASH_RANK_MODAL_CANCEL,
-  DASH_RANK_MODAL_CONFIRM,
-  DASH_RANK_SUBMITTING,
   DASH_RANK_SUCCESS,
   DASH_RANK_ERROR_GENERIC,
   DASH_STAT_TOTAL,
@@ -54,7 +48,7 @@ import {
   TABLE_COL_DRIVERS_LICENSE,
   TABLE_COL_STATUS,
 } from '@/constants/branding';
-import { createListwiseJob } from '@/services/jobsApi';
+import { ListwiseRankingModalTrigger } from '@/components/jobs/ListwiseRankingModalTrigger';
 import { seedScreeningSimulation } from '@/services/simulationApi';
 
 const SIMULATION_USED_STORAGE_KEY = 'orbio_dashboard_simulation_used';
@@ -101,8 +95,6 @@ const Dashboard = () => {
   const [simulationAlreadyUsed, setSimulationAlreadyUsed] = useState(readSimulationAlreadyUsed);
   const [simModalOpen, setSimModalOpen] = useState(false);
   const [simSubmitting, setSimSubmitting] = useState(false);
-  const [rankModalOpen, setRankModalOpen] = useState(false);
-  const [rankSubmitting, setRankSubmitting] = useState(false);
   const [rankBanner, setRankBanner] = useState<{
     type: 'success' | 'error' | 'warning';
     text: string;
@@ -146,7 +138,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="secondary"
-              disabled={rankSubmitting || simSubmitting || simulationAlreadyUsed}
+              disabled={simSubmitting || simulationAlreadyUsed}
               title={simulationAlreadyUsed ? DASH_SIM_USED_HINT : undefined}
               onClick={() => {
                 if (simulationAlreadyUsed) return;
@@ -156,17 +148,19 @@ const Dashboard = () => {
             >
               {DASH_BTN_SIMULATION}
             </Button>
-            <button
-              type="button"
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
-              disabled={rankSubmitting || simSubmitting}
-              onClick={() => {
-                setRankBanner(null);
-                setRankModalOpen(true);
-              }}
-            >
-              {DASH_BTN_NEW}
-            </button>
+            <ListwiseRankingModalTrigger
+              disabled={simSubmitting}
+              onClearFeedback={() => setRankBanner(null)}
+              onQueued={(jobId) =>
+                setRankBanner({
+                  type: 'success',
+                  text: DASH_RANK_SUCCESS(jobId),
+                })
+              }
+              onQueueFailed={() =>
+                setRankBanner({ type: 'error', text: DASH_RANK_ERROR_GENERIC })
+              }
+            />
           </div>
         </div>
       </div>
@@ -417,49 +411,6 @@ const Dashboard = () => {
             }}
           >
             {simSubmitting ? DASH_SIM_SUBMITTING : DASH_SIM_MODAL_CONFIRM}
-          </Button>
-        </div>
-      </Modal>
-      <Modal
-        isOpen={rankModalOpen}
-        onClose={() => !rankSubmitting && setRankModalOpen(false)}
-        title={DASH_RANK_MODAL_TITLE}
-        size="md"
-      >
-        <p className="text-sm text-gray-600 leading-relaxed">{DASH_RANK_MODAL_BODY}</p>
-        <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={rankSubmitting}
-            onClick={() => setRankModalOpen(false)}
-          >
-            {DASH_RANK_MODAL_CANCEL}
-          </Button>
-          <Button
-            type="button"
-            disabled={rankSubmitting}
-            onClick={() => {
-              void (async () => {
-                setRankSubmitting(true);
-                setRankBanner(null);
-                try {
-                  const res = await createListwiseJob({});
-                  setRankModalOpen(false);
-                  setRankBanner({
-                    type: 'success',
-                    text: DASH_RANK_SUCCESS(res.job_id),
-                  });
-                } catch {
-                  setRankModalOpen(false);
-                  setRankBanner({ type: 'error', text: DASH_RANK_ERROR_GENERIC });
-                } finally {
-                  setRankSubmitting(false);
-                }
-              })();
-            }}
-          >
-            {rankSubmitting ? DASH_RANK_SUBMITTING : DASH_RANK_MODAL_CONFIRM}
           </Button>
         </div>
       </Modal>
