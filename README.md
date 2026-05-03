@@ -268,7 +268,7 @@ orbio/
 │   │   └── workers/
 │   │       ├── sentiment_analysis/
 │   │       └── listwise_plackett_luce/
-│   ├── docs/                       # Design deep-dives
+│   ├── docs/                       # Allowlisted docs + KB text (.gitignore)
 │   ├── prompts/                    # Prompts + schema hints
 │   ├── scripts/
 │   │   ├── load_grupo_sazon_kb.py  # Chroma / KB loading
@@ -338,9 +338,12 @@ It integrates with the OpenAI clients in this repo via `wrap_openai` and `@trace
 
 | Topic | Document |
 |--------|-----------|
-| Ranking: weights vs listwise + PL | [`backend/docs/Ranking_Repartidores_Listwise_vs_Weights.md`](backend/docs/Ranking_Repartidores_Listwise_vs_Weights.md) |
-| Listwise worker + `NOTIFY` | [`backend/docs/LISTWISE_WORKER_NOTIFY.md`](backend/docs/LISTWISE_WORKER_NOTIFY.md) |
-| Redis design | [`backend/docs/REDIS_DESIGN.md`](backend/docs/REDIS_DESIGN.md) |
-| PostgreSQL design | [`backend/docs/POSTGRESQL_DESIGN.md`](backend/docs/POSTGRESQL_DESIGN.md) |
-| Screening filters & status | [`backend/docs/SCREENING_FILTERS_AND_CANDIDATE_STATUS.md`](backend/docs/SCREENING_FILTERS_AND_CANDIDATE_STATUS.md) |
+| PostgreSQL schema & relationships | [`backend/docs/POSTGRESQL_DESIGN.md`](backend/docs/POSTGRESQL_DESIGN.md) |
+| Employer public KB text (RAG / prompts) | [`backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt`](backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt) |
+| Listwise + Plackett–Luce methodology | [`backend/docs/listwise+plackett-luce.pdf`](backend/docs/listwise+plackett-luce.pdf) |
+
+Other repo docs:
+
+| Topic | Document |
+|--------|-----------|
 | HTTP conventions | [`backend/ENDPOINT_RULES.md`](backend/ENDPOINT_RULES.md) |

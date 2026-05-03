@@ -62,13 +62,11 @@ temp/
 backend/outputs/*
 !backend/outputs/.gitkeep
 
-# --- Private / excluded docs (tracked locally only) ---
-backend/docs/2026.eacl-demo.24_ES.md
-backend/docs/2026.eacl-demo.24.pdf
-backend/docs/FDE_Technical_Assignment.md
-backend/docs/Phase1_Process_Design_ES.md
-backend/docs/Phase1_Process_Design.md
-backend/docs/BATCHES_VACANCIES_RANKING.md
+# --- backend/docs: only these files are tracked ---
+backend/docs/*
+!backend/docs/POSTGRESQL_DESIGN.md
+!backend/docs/GRUPO_SAZON_PUBLIC_INFO_ES.txt
+!backend/docs/listwise+plackett-luce.pdf
 
 backend/COMMIT_FORMAT.md
 

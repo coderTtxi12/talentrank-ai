@@ -1,12 +1,12 @@
 # PostgreSQL Design
 
 Persistent store for the Grupo Sazón screening platform. Hot-path conversation
-state lives in Redis (see [`REDIS_DESIGN.md`](./REDIS_DESIGN.md)); PostgreSQL
+state lives in Redis; PostgreSQL
 holds everything that must survive process restarts, be queried analytically,
 or be auditable under GDPR / EU AI Act / NYC LL-144.
 
 > **Driver / version:** PostgreSQL 16 + `psycopg` 3 (sync) via SQLAlchemy 2.0.
-> **Migrations:** Alembic — initial revision `0001_initial_schema.py`.
+> **Migrations:** Alembic — chain `0001` … `0006` (see [§2 Phases](#2-evolution-in-phases)).
 > **Schema source of truth:** [`backend/app/models/database.py`](../app/models/database.py).
 
 ---
@@ -14,146 +14,125 @@ or be auditable under GDPR / EU AI Act / NYC LL-144.
 ## 1. Design principles
 
 - **PostgreSQL-native types.** `UUID` PKs (server-generated with `gen_random_uuid()`), `TIMESTAMPTZ` everywhere, `JSONB` for evolving payloads, `ARRAY` for short lists, native `ENUM` for closed sets.
-- **Catalogs are tables, not enums.** `service_areas`, `service_zones`, `platforms` change without migrations.
+- **Catalogs are tables, not enums.** `service_areas` and `service_zones` evolve without touching Python enums.
 - **One table per concern.** `conversations` ≠ `messages` ≠ `jobs` ≠ `ranking_*`.
 - **License is a boolean.** Captured via chat (`drivers_license: bool`). **No image, no document, no upload table.** Keeps the system out of GDPR “special category” territory and removes a large class of storage / abuse risk.
-- **Workers consume jobs from Postgres** with `SELECT ... FOR UPDATE SKIP LOCKED` — no extra broker for v1.
-- **Auditability first.** Each ranking decision is reproducible from `ranking_runs` + `ranking_tournaments` + `ranking_results.decision_trace`.
+- **Workers coordinate through Postgres.** Rows in `jobs` are claimed with conditional updates / `SELECT … FOR UPDATE SKIP LOCKED` where appropriate; **sentiment** and **listwise** paths additionally use **`NOTIFY`** channels (`candidate_completed`, `listwise_job_pending`) so workers wake without polling (see migrations `0002`, `0004` / `0005`).
+- **Auditability first.** Each ranking decision should remain traceable from `ranking_runs` + `ranking_tournaments` + `ranking_results.decision_trace` (plus orchestrator summaries where persisted).
 
 ---
 
-## 2. Entity map
+## 2. Evolution in phases
 
-```
-service_areas ──< service_zones
-service_areas ──< vacancies
-service_areas ──< candidates
-service_zones ──< candidates
+The schema was **not** frozen at `0001`: later revisions reflect async workers, finer-grained candidate lifecycle, and listwise orchestration persistence.
 
-candidates    ──< conversations ──< messages
-                    │
-                    ├──< sentiment_results (1:1)
-                    ├──< nudges
-                    └──< security_events
+| Revision | Intent |
+|----------|--------|
+| **`0001_initial_schema`** | Baseline: catalogs (`service_areas`, `service_zones`), `vacancies`, `candidates`, `conversations` / `messages`, generic **`jobs`** queue (`sentiment`, `ranking`, `nudge`), `sentiment_results`, ranking tables (`ranking_runs`, `ranking_tournaments`, `ranking_results`), `security_events`, `nudges`, `audit_log`. Candidate geography is stored as free-text **`city_zone`** plus slots in **`captured_data`** — there is **no** FK from `candidates` into `service_areas`. |
+| **`0002_candidate_completed_notify`** | After **`candidates.is_completed`** flips to true, Postgres **`NOTIFY`s** `candidate_completed` so the sentiment worker can **`LISTEN`** instead of scanning the table. |
+| **`0003_candidate_status_pipeline_stages`** | Extends **`candidate_status_enum`** with intermediate stages: `hard_filter`, `sentiment_analysis`, `listwise`, `plackett_luce`, reflecting the multi-step pipeline after chat. |
+| **`0004_listwise_job_type_and_notify`** (+ **`0005`** repair) | Adds **`listwise`** to **`job_type_enum`** and a trigger that **`NOTIFY`s** `listwise_job_pending` on insert of listwise jobs for the listwise worker. |
+| **`0006_ranking_run_listwise_persistence`** | **`ranking_runs.vacancy_id`** becomes **nullable** (listwise jobs may run without a vacancy); adds **`ranking_runs.orchestrator_output`** and **`ranking_tournaments.llm_trace`** JSONB columns for orchestrator / sub-agent audit data. |
 
-vacancies     ──< ranking_runs ──< ranking_tournaments
-                                  └──< ranking_results >── candidates
-
-jobs          (queue table consumed by sentiment + ranking + nudge workers)
-audit_log     (cross-entity append-only trail)
-```
+Downstream code (status transitions, worker entrypoints) should be read **together** with this chain: behaviors that look “implicit” often come from triggers or NOTIFY listeners added after the initial revision.
 
 ---
 
-## 3. Tables
+## 3. Relationships (foreign keys)
+
+This section replaces the old ASCII entity diagram: it describes **how rows reference each other** as implemented today.
+
+### Catalogs and vacancies
+
+- **`service_zones`** → **`service_areas`**: each zone belongs to exactly one area (`area_id`, `ON DELETE CASCADE`).
+- **`vacancies`** → **`service_areas`**: each vacancy is anchored to one area (`area_id`). Operational fields (`urgency`, `critical_shifts`, `ideal_start_days`, …) are what listwise prompts treat as **vacancy context**.
+
+### Candidates — attachment point for chats only
+
+- **`candidates`** carries screening fields (`drivers_license`, **`city_zone`** text, **`platforms`** as `varchar[]`, enums for availability / schedule, etc.). **There is no foreign key** from `candidates` to `service_areas` / `service_zones`; alignment with catalogs is enforced in application logic and hard filters, not via relational joins on the candidate row.
+- **`conversations`** → **`candidates`** (optional `candidate_id`, `ON DELETE SET NULL`): every durable chat session may point at a candidate once registration links them.
+- **`conversations`** → **`vacancies`** (optional `vacancy_id`, `ON DELETE SET NULL`): ties a screening session to a specific opening when that is known.
+
+### Conversation spine: messages and satellites
+
+- **`messages`** → **`conversations`** (`conversation_id`, `ON DELETE CASCADE`): append-only transcript; `tool_calls` JSONB holds ReAct-style tool payloads.
+- **`sentiment_results`** → **`conversations`** (`conversation_id` **unique**, `ON DELETE CASCADE`): **at most one row per conversation**; re-runs upsert the same logical result.
+- **`nudges`** → **`conversations`** (`ON DELETE CASCADE`): scheduled re-engagement rows scoped to the session.
+- **`security_events`** → **`conversations`** and **`messages`** (both optional FKs, `ON DELETE SET NULL`): records reflection / abuse events while allowing parent rows to be removed or anonymized according to policy.
+
+### Worker queue
+
+- **`jobs`** has **no foreign keys**. Intent is carried in **`payload`** (e.g. `conversation_id`, `vacancy_id`, job id strings). Types include **`sentiment`**, **`ranking`**, **`nudge`**, and **`listwise`** (added in `0004`). This keeps enqueueing cheap and avoids circular dependencies; **integrity is enforced by workers** reading valid ids.
+
+### Ranking (Listwise + Plackett–Luce)
+
+- **`ranking_runs`** → **`vacancies`** (`vacancy_id` **nullable** since `0006`): a run may be tied to a vacancy or represent a job-scoped execution with context only in payload / orchestrator output.
+- **`ranking_tournaments`** → **`ranking_runs`** (`run_id`, `ON DELETE CASCADE`): one row per listwise LLM call; **`candidate_ids`** / **`llm_ranking`** are **UUID arrays**, not FK constraints — the model can output orderings that are validated in code.
+- **`ranking_results`** → **`ranking_runs`** (`ON DELETE CASCADE`) and **`candidates`** (`candidate_id`): one row per `(run, candidate)` with PL utilities, positions, and **`decision_trace`**. **`(run_id, candidate_id)`** is unique.
+
+### Audit
+
+- **`audit_log`** stores **`entity_type` + `entity_id`** as opaque fields (optional UUID) **without FKs**, so any table can emit a row without migration churn.
+
+### Conventions summary
+
+- **Cascade** on children that should disappear with the parent (`messages`, `ranking_*` children of a run, `nudges`).
+- **`SET NULL`** where you may keep history if a person or vacancy link is removed (`conversation.candidate_id` / `vacancy_id`, `security_events` parents).
+- **`session_id`** on `conversations` is **not** a FK: it is the shared key with **Redis** for the hot path (see [`REDIS_DESIGN.md`](./REDIS_DESIGN.md)).
+
+---
+
+## 4. Table reference (concise)
 
 ### Catalogs
 
 | Table | Purpose | Key columns |
-|---|---|---|
-| `service_areas` | 45 cities (ES + MX) | `code` (unique), `city`, `country`, `active` |
-| `service_zones` | sub-zones inside a city | `area_id`, `name` (unique per area) |
-| `platforms` | Glovo, Uber Eats, Rappi, DiDi, Stuart, … | `code`, `name`, `active` |
+|-------|---------|-------------|
+| `service_areas` | Cities (ES + MX) | `code` (unique), `city`, `country`, `active` |
+| `service_zones` | Sub-zones inside a city | `area_id` → `service_areas`, `name` (unique per area) |
 
-### `vacancies`
+### Core domain
 
-Operational job to fill. Drives the ranking.
+| Table | Purpose |
+|-------|---------|
+| `vacancies` | Operational opening: `area_id`, `urgency`, `critical_shifts`, `ideal_start_days`, `headcount`, `status`, … |
+| `candidates` | One person screened: contact, `drivers_license`, `city_zone`, `platforms[]`, enums, **`status`** (full pipeline per `0003`), `is_completed`, `slot_uncertain`, … |
+| `conversations` | Durable session: `session_id`, optional `candidate_id` / `vacancy_id`, `captured_data` JSONB, `status`, timestamps |
+| `messages` | One turn per row: `role`, `content`, `tool_calls`, `security_flagged`, … |
 
-- `area_id`, `urgency` (`low/medium/high`), `critical_shifts` (`text[]`, e.g. `{night, weekend}`), `ideal_start_days` (int), `headcount`, `status`.
-- The fields **`urgency`, `critical_shifts`, `ideal_start_days`** are the *operational context* injected verbatim into the listwise prompt — this is exactly what a fixed-weights formula cannot model.
+### Workers and post-screening
 
-### `candidates`
+| Table | Purpose |
+|-------|---------|
+| `jobs` | Generic queue: `job_type` (`sentiment` \| `ranking` \| `listwise` \| `nudge`), `status`, `payload`, retries, `run_after`, locks |
+| `sentiment_results` | 1:1 with `conversations`: `sentiment`, `confidence`, `signals`, `model_version` |
+| `ranking_runs` | One ranking execution: optional `vacancy_id`, `rubric_version`, `pool_size`, `top_n`, `orchestrator_output`, … |
+| `ranking_tournaments` | Per listwise call: arrays of candidate UUIDs, `llm_ranking`, `confidence`, `llm_trace`, … |
+| `ranking_results` | Per candidate in a run: `utility`, `posterior_variance`, `rank_position`, `tournaments_seen`, `decision_trace` |
 
-One row per person screened.
+### Safety and compliance
 
-- Contact: `full_name`, optional `phone`, `email` (both unique).
-- Locale + privacy: `language`, `consent`, `consent_at`.
-- Screening data captured by the agent: `drivers_license: bool`, `area_id`, `zone_id`, `availability` (enum), `preferred_schedule` (enum), `experience_years` (0–50, CHECK), `platforms text[]`, `start_date`.
-- State: `status` (`new / in_progress / hard_filter / sentiment_analysis / listwise / plackett_luce / qualified / qualified_flagged / soft_disq / hard_disq / waitlist / abandoned`), `slot_uncertain` flag (set by the agent when validation retried twice).
+| Table | Purpose |
+|-------|---------|
+| `security_events` | Reflection agent / abuse: `attack_type`, `severity`, optional `conversation_id` / `message_id`, `blocked`, `extra` |
+| `nudges` | Re-engagement schedule per `conversation_id` |
+| `audit_log` | Append-only cross-entity trail (`entity_type`, `entity_id`, `action`, `actor`, `payload`) |
 
-> **License rationale:** the chat agent only asks *“do you have a driver’s license?”*. Storing the answer as a boolean makes the field cheap, regex-validatable, and free of biometric-document handling. ID document upload is an explicit non-feature for v1.
-
-### `conversations` and `messages`
-
-- `conversations.session_id` is the same key Redis uses for hot-path state. Postgres has the durable copy.
-- `captured_data JSONB` mirrors slots so dashboards can query them without joining `candidates`.
-- `messages` is append-only; one row per turn (user / assistant / system / tool). `tool_calls JSONB` records ReAct tool invocations for replay. `security_flagged bool` marks turns the reflection agent intervened on.
-
-Indexes: `(conversation_id, created_at)` for chronological reads; `status` and `(candidate_id)` on conversations for dashboards.
-
-### `jobs` (worker queue)
-
-Single generic queue:
-
-- `job_type` (`sentiment` | `ranking` | `nudge`), `status`, `payload JSONB`.
-- `attempts` / `max_attempts` for retry policy, `last_error TEXT`.
-- `run_after TIMESTAMPTZ` for deferred execution (used by nudges).
-- `locked_at` / `locked_by` for visibility into in-flight work.
-
-**Hot path** — workers pull with:
-
-```sql
-SELECT id, payload
-FROM jobs
-WHERE status = 'pending'
-  AND job_type = $1
-  AND run_after <= now()
-ORDER BY run_after
-FOR UPDATE SKIP LOCKED
-LIMIT 10;
-```
-
-Backed by the partial index `ix_jobs_pending_runafter (job_type, run_after) WHERE status = 'pending'`.
-
-### `sentiment_results`
-
-1:1 with `conversations`. `sentiment` enum (`positive / neutral / confused / frustrated`), `confidence`, `signals JSONB` (per-turn breakdown), `model_version`.
-
-Used by the ranking worker as a soft penalty (frustrated → lowered utility / dashboard flag).
-
-### Ranking pipeline (Listwise + Plackett–Luce)
-
-Three tables — one per layer of the worker described in `Phase1_Conversation_Design.md` §5:
-
-| Table | Grain | Notes |
-|---|---|---|
-| `ranking_runs` | one per `(vacancy_id, attempt)` | `rubric_version`, `pool_size`, `top_n`, run lifecycle |
-| `ranking_tournaments` | one per LLM listwise call | `candidate_ids` and `llm_ranking` are UUID arrays of length K; `confidence`, `model`, `is_active_learning` |
-| `ranking_results` | one per `(run_id, candidate_id)` | `utility` (PL latent), `posterior_variance`, `rank_position`, `tournaments_seen`, `decision_trace JSONB` |
-
-Auditability: any past ranking can be replayed from `ranking_tournaments`. The recruiter dashboard joins `ranking_results` ↔ `candidates` ↔ `conversations` to render the daily top-K.
-
-### `security_events`
-
-Every block by the reflection agent.
-
-- `attack_type` (`direct_override`, `prompt_leakage`, `role_hijack`, `base64_obf`, `cross_lingual`, `indirect_injection`, `multi_turn_trust`, `chat_template_abuse`, `reward_framing`),
-- `severity` enum, `pattern`, `raw_input`, `blocked bool`, `extra JSONB`.
-
-Linked to the offending `conversation_id` and `message_id` for forensics.
-
-### `nudges`
-
-Schedule of re-engagement messages: `(+5min light, +4h context, +24h value, +72h close)`. The nudge worker picks rows where `delivered = false AND scheduled_at <= now()`.
-
-### `audit_log`
-
-Append-only cross-entity trail (`entity_type`, `entity_id`, `action`, `actor`, `payload JSONB`). Used for GDPR access requests and EU AI Act explainability.
+Indexes and partial indexes (e.g. **`ix_jobs_pending_runafter`** for pending jobs by type) are defined in **`0001`** and unchanged unless a later revision says otherwise.
 
 ---
 
-## 4. Conventions
+## 5. Conventions
 
 - **Primary keys.** UUID v4, server-generated.
-- **Timestamps.** Always `TIMESTAMPTZ`. `created_at` defaults to `now()`. `updated_at` uses both `server_default` and `onupdate=func.now()` in SQLAlchemy.
+- **Timestamps.** Always `TIMESTAMPTZ`. `created_at` defaults to `now()`. `updated_at` uses both `server_default` and `onupdate=func.now()` in SQLAlchemy where present.
 - **Soft deletes.** Not used. Closed/abandoned/disqualified states are explicit on `status`.
-- **JSONB columns** never replace first-class columns when the field is queried in a `WHERE` clause. They store: extracted slots snapshot, decision traces, sentiment signals, rubric metadata, security extras, audit payloads.
-- **Foreign keys.** `ON DELETE CASCADE` for child rows (`messages`, `ranking_tournaments`, `ranking_results`, `nudges`); `ON DELETE SET NULL` for cross-entity refs we want to keep around (`candidate_id` / `vacancy_id` on conversations, `message_id` on security events).
-- **Enums.** Created once in migration `0001`, reused across columns (`language_enum`, `job_status_enum`).
+- **JSONB columns** never replace first-class columns when the field is queried heavily in `WHERE`; they store snapshots, traces, sentiment signals, rubric metadata, security extras, audit payloads.
+- **Enums.** Created in baseline migrations and extended with **`ALTER TYPE … ADD VALUE`** where PostgreSQL requires it (`0003`, `0004`); removals are intentionally avoided.
 
 ---
 
-## 5. Migrations
+## 6. Migrations
 
 ```bash
 # from backend/
@@ -161,12 +140,11 @@ alembic upgrade head
 ```
 
 - `alembic/env.py` reads `settings.DATABASE_URL` (so secrets stay out of `alembic.ini`).
-- Initial revision: `0001_initial_schema.py` — installs `pgcrypto`, all enums, all tables and indexes (including the partial index for the worker hot path).
-- Downgrade is symmetric and tested manually before each release.
+- Apply **all** revisions through **`0006`** for listwise NOTIFY + nullable vacancy ranking runs + orchestrator persistence.
 
 ---
 
-## 6. Containerization
+## 7. Containerization
 
 `docker-compose.yml` ships a `postgres:16-alpine` service with a health check (`pg_isready`) and a persistent named volume (`pg_data`). Defaults are overridable via env vars (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`).
 
@@ -203,11 +181,11 @@ If your DB is **half-migrated** (types exist but tables are missing or `alembic_
    alembic upgrade head
    ```
 
-2. **Manual cleanup:** connect as user `app`, drop leftover objects in schema `public`, then `alembic upgrade head`, or `alembic stamp 0001` only if the schema already matches `0001` exactly (advanced).
+2. **Manual cleanup:** connect as user `app`, drop leftover objects in schema `public`, then `alembic upgrade head`, or `alembic stamp` only if the schema already matches head exactly (advanced).
 
 ---
 
-## 7. What is *not* in PostgreSQL
+## 8. What is *not* in PostgreSQL
 
 - **Conversation hot state** (active session, recent slots, last LLM tool call) → Redis.
 - **Recent message history** for in-flight chats → Redis (mirrored into `messages` on flush).
