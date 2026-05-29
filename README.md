@@ -1,13 +1,8 @@
-# Orbio
+# TalentRank AI
 
 A production-oriented **hiring stack** for high-volume, operations-sensitive screening—conversational intake, deterministic gates, post-chat sentiment, and **listwise LLM tournaments** aggregated with **Plackett–Luce** so recruiters get the top candidates.
 
 The repo is a **multi-service monorepo**: FastAPI API, two background workers, a candidate **Next.js** chat, and a recruiter **Vite** dashboard, orchestrated with **Docker Compose**. **PostgreSQL** is the system of record; **Redis** holds hot session state; **Chroma** (volume-backed) powers RAG over an employer knowledge base.
-
-> [!IMPORTANT]
-> **Video demo (Loom)** — end-to-end walkthrough of screening chat, workers, and listwise + placket-luce ranking:
->
-> **[https://www.loom.com/share/760780865a824aca8799c0f81b0a11a0](https://www.loom.com/share/760780865a824aca8799c0f81b0a11a0)**
 
 ---
 

@@ -76,3 +76,6 @@ backend/.chroma/
 
 # --- Local Docker dev override (bind mounts + uvicorn reload) ---
 docker-compose.override.yml
+
+# --- Feedback ---
+feedback.md
