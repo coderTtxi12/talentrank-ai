@@ -1,8 +1,8 @@
 # TalentRank AI
 
-A production-oriented **hiring stack** for high-volume, operations-sensitive screening—conversational intake, deterministic gates, post-chat sentiment, and **listwise LLM tournaments** aggregated with **Plackett–Luce** so recruiters get the top candidates.
+TalentRank AI is a **production-oriented AI hiring platform** for **high-volume candidate screening**. It combines **conversational intake**, **deterministic hard filters**, **RAG-powered company knowledge**, **async workers**, **sentiment analysis**, and **listwise LLM ranking** with **Plackett–Luce** aggregation to **choose the best candidates**.
 
-The repo is a **multi-service monorepo**: FastAPI API, two background workers, a candidate **Next.js** chat, and a recruiter **Vite** dashboard, orchestrated with **Docker Compose**. **PostgreSQL** is the system of record; **Redis** holds hot session state; **Chroma** (volume-backed) powers RAG over an employer knowledge base.
+The repo is a **multi-service**: FastAPI API, two background workers, a candidate **Next.js** chat, and a recruiter **Vite** dashboard, orchestrated with **Docker Compose**. **PostgreSQL** is the system of record; **Redis** holds hot session state; **Chroma** (volume-backed) powers RAG over an employer knowledge base.
 
 ---
 
